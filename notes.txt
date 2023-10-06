@@ -1,0 +1,27 @@
+- Stops can only be searched by name, stop id, operator id, or lat/lon. Not by route or trip. And when searching by operator it doesn't return parent stop areas.
+
+- Departures must be searched by stop key, and then optionally further refined by next time window, or by service date, start time, end time.
+
+- Trips must be searched by route key, and then optionally further refined by service date. The matched trips don't include any route/stop/departure info, so they can't be meaningfully distinguished except by the abstract trip id.
+
+- A single trip must be queried by route key and trip id. Stop times, and a subset of stop info, are only returned when querying a single trip.
+
+Can we get stops/departures from routes? Yes, per individually queried route (stops only, not departures)! But it lists all the stops for both directions, and not in any particular discernable order. For this we need the trip json.
+
+So, working backwards from what we need to how we can get it:
+- To start driving, we need an individual trip JSON.
+- To get the trip, we need a departure time and location.
+- To get the departure time and location, we need an indidual stop.
+- To get the stop, we need an individual route.
+- Routes can be found in various ways, one of which is by operator.
+
+
+
+Main screen table headers:
+- Stop name
+- Avg spd min-max
+- Adj spd min-max
+- ETA (+/-delay)
+- Departure time (+/-countdown)
+
+Table has rows for the next three stops, the next timepoint, and the last stop.

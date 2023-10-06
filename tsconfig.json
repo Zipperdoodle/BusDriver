@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        // "outFile": "./public/bundle.js",
+        // "module": "system",
+        // "rootDir": "./src",
+        "outDir": "./public",
+        "target": "ES2018"
+    },
+    // "include": [
+    //     "src/**/*.ts"
+    // ],
+    "include": [
+        "src/script.ts"
+    ],
+}

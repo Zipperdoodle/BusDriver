@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Bus Driver Dashboard">
+    <title>Bus Driver</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="large-ui">
+    <div id="DrivingPanel" class="Panel">
+        <div id="HeaderContainer" class="large-container">
+            <h1 id="BusDetails">123: Departure - Destination</h1>
+        </div>
+
+        <div id="TableContainer" class="large-container">
+            <table id="UpcomingStopsTable">
+                <!-- Rows and columns to be populated by script -->
+            </table>
+        </div>
+
+        <div id="ButtonContainer" class="large-container">
+            <button id="SettingsButton" onclick="SettingsUI.ButtonSettings()">Settings</button>
+            <button id="NewTripButton" onclick="ButtonNewTrip()">New Trip</button>
+        </div>
+    </div>
+
+    <div id="SettingsPanel" class="Panel">
+        <table id="SettingsTable">
+            <!-- Rows and columns to be populated by script -->
+        </table>
+        <button id="SaveButton" onclick="SettingsUI.ButtonSaveSettings()">Save</button>
+        <button id="CancelButton" onclick="SettingsUI.ButtonCancelSettings()">Cancel</button>
+    </div>
+
+    <div id="NewTripPanel" class="Panel">
+        <select id="RouteDropdown" onchange="RouteSelectionChanged()">
+            <!-- Options to be populated by script -->
+        </select>
+        <select id="StopDropdown" onchange="StopSelectionChanged()">
+            <!-- Options to be populated by script -->
+        </select>
+        <select id="TripDropdown" onchange="TripSelectionChanged()">
+            <!-- Options to be populated by script -->
+        </select>
+        <button id="StartButton" onclick="ButtonStartNewTrip()">Start</button>
+        <button id="CancelNewTripButton" onclick="ButtonCancelNewTrip()">Cancel</button>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+
+</html>

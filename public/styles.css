@@ -1,0 +1,33 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+.large-ui {
+    font-size: 24px;
+    padding: 20px;
+}
+
+.large-ui button {
+    padding: 10px 20px;
+    margin-right: 10px;
+}
+
+.large-container {
+    margin-bottom: 20px;
+}
+
+#UpcomingStopsTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#UpcomingStopsTable th,
+#UpcomingStopsTable td {
+    padding: 10px;
+    border: 1px solid #000;
+    text-align: left;
+}
+
+.Panel {
+    display: none;
+}
