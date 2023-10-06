@@ -4,7 +4,7 @@
         // "outFile": "./public/bundle.js",
         // "module": "system",
         // "rootDir": "./src",
-        "outDir": "./docs",
+        "outDir": "./public",
         "target": "ES2018"
     },
     // "include": [
