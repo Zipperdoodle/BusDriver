@@ -1,4 +1,21 @@
 
+namespace Util {
+
+    export function DistanceComparator(aOriginX: number, aOriginY: number): (aX1: number, aY1: number, aX2: number, aY2: number) => number {
+        return (aX1: number, aY1: number, aX2: number, aY2: number): number => {
+            const lDeltaX1 = aX1 - aOriginX;
+            const lDeltaY1 = aY1 - aOriginY;
+            const lDeltaX2 = aX2 - aOriginX;
+            const lDeltaY2 = aY2 - aOriginY;
+            const lDistanceSquared1 = lDeltaX1 * lDeltaX1 + lDeltaY1 * lDeltaY1;
+            const lDistanceSquared2 = lDeltaX2 * lDeltaX2 + lDeltaY2 * lDeltaY2;
+            return lDistanceSquared1 - lDistanceSquared2;
+        };
+    };
+};
+
+
+
 namespace Fetch {
 
     export type FetchResult<T> = {
@@ -52,15 +69,200 @@ namespace TransitLandAPIClient {
 
     export type TLAPIClient = Record<string, Function>; //!@#TODO...
     export type GenericRecord = Record<string, string | number | boolean | object>; //!@#HACK
-    export type Operator = GenericRecord; //!@#TODO...
-    export type Route = GenericRecord; //!@#TODO...
-    export type Trip = GenericRecord; //!@#TODO...
-    export type Stop = GenericRecord; //!@#TODO...
+
+    export type GeolocatedObject = GenericRecord & {
+        lat: number;
+        lon: number;
+    };
+
+    export type Point2DGeometry = {
+        coordinates: [
+            number,
+            number
+        ];
+        type: "Point";
+    };
+
+    export type Line3DGeometry = {
+        coordinates: [
+            [
+                number,
+                number,
+                number
+            ]
+        ];
+        type: "LineString";
+    };
+
+    export type MultiLine2DGeometry = {
+        coordinates: [
+            [
+                number,
+                number
+            ]
+        ];
+        type: "MultiLineString";
+    };
+
+    export type ShapeSubset = {
+        shape_id: string;
+        generated: boolean;
+    };
+
+    export type FeedSubset = {
+        id: number;
+        onestop_id: string;
+    };
+
+    export type FeedVersionSubset = {
+        feed: FeedSubset;
+        id: number;
+        fetched_at: string;
+        sha1: string;
+
+    };
+
+    export type AgencySubset = {
+        id: number;
+        agency_id: string;
+        agency_name: string;
+        onestop_id: string;
+    };
+
+    export type AgencyPlace = {
+        adm0_name: string;
+        adm1_name: string;
+        city_name: string;
+    };
+
+    export type OperatorFeedSubset = FeedSubset & {
+        name: string | null;
+        spec: string;
+    };
+
+    export type Operator = {
+        agencies: (AgencySubset & AgencyPlace)[];
+        feeds: OperatorFeedSubset[];
+        id: number;
+        name: string;
+        onestop_id: string;
+        short_name: string | null;
+        tags: Record<string, string> | null;
+        website: string | null;
+    };
+
+    export type BusStopSubset = {
+        id: number;
+        stop_id: string;
+        stop_name: string;
+        geometry: Point2DGeometry;
+    };
+
+    export type BusStopPlace = {
+        adm0_iso: string;
+        adm0_name: string;
+        adm1_iso: string;
+        adm1_name: string;
+    };
+
+    export type BusStop = BusStopSubset & {
+        location_type: number;
+        onestop_id: string;
+        parent: BusStopSubset | null;
+        place: BusStopPlace;
+        platform_code: string | null;
+        stop_code: string;
+        stop_desc: string;
+        stop_timezone: string;
+        stop_url: string;
+        tts_stop_name: string | null;
+        wheelchair_boarding: 0 | 1;
+        zone_id: string;
+    };
+
+    export type BusStopTime = {
+        stop: BusStopSubset;
+        arrival_time: string;
+        departure_time: string;
+        drop_off_type: number;
+        interpolated: number | null;
+        pickup_type: number;
+        stop_headsign: string;
+        stop_sequence: number;
+        timepoint: 0 | 1;
+    };
+
+    export type RouteSubset = {
+        agency: AgencySubset;
+        feed_version: FeedVersionSubset;
+        continuous_drop_off: number | null;
+        continuous_pickup: number | null;
+        id: number;
+        onestop_id: string;
+        route_color: string;
+        route_desc: string;
+        route_id: string;
+        route_long_name: string;
+        route_short_name: string;
+        route_sort_order: number;
+        route_text_color: string;
+        route_type: number;
+        route_url: string;
+        geometry?: MultiLine2DGeometry;
+    };
+
+    export type Route = RouteSubset & {
+        route_stops: {
+            stop: BusStopSubset;
+        }[];
+    };
+
+    export type TripFrequency = {
+        start_time: number;
+        end_time: number;
+        headway_secs: number;
+        exact_times: number;
+    };
+
+    export type TripSubset = {
+        bikes_allowed: 0 | 1;
+        block_id: string;
+        calendar: {
+            service_id: string;
+            added_dates: string[];
+            removed_dates: string[];
+            start_date: string;
+            end_date: string;
+            friday: 0 | 1;
+            monday: 0 | 1;
+            saturday: 0 | 1;
+            sunday: 0 | 1;
+            thursday: 0 | 1;
+            tuesday: 0 | 1;
+            wednesday: 0 | 1;
+        },
+        feed_version: FeedVersionSubset;
+        frequencies: TripFrequency[];
+        id: number;
+        direction_id: 0 | 1;
+        shape: ShapeSubset;
+        stop_pattern_id: number;
+        trip_headsign: string;
+        trip_id: string;
+        trip_short_name: string;
+        wheelchair_accessible: 0 | 1;
+    };
+
+    export type Trip = TripSubset & {
+        shape: ShapeSubset & {
+            geometry: Line3DGeometry;
+        };
+        stop_times: BusStopTime[];
+    };
+
     export type Departure = GenericRecord; //!@#TODO...
 
-    type TransitLandArrayKey = "operators" | "routes" | "trips" | "stops" | "departures";
-
-    export interface TransitLandData {
+    export type TransitLandData = {
         meta?: {
             after?: number;
             next?: string;
@@ -68,9 +270,11 @@ namespace TransitLandAPIClient {
         operators?: Operator[];
         routes?: Route[];
         trips?: Trip[];
-        stops?: Stop[];
+        stops?: BusStop[];
         departures?: Departure[];
     };
+
+    export type TransitLandArrayKey = "operators" | "routes" | "trips" | "stops" | "departures";
 
 
 
@@ -78,7 +282,7 @@ namespace TransitLandAPIClient {
 
 
 
-    async function FetchedTransitLandDataPage(aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> {
+    export async function FetchedTransitLandDataPage(aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> {
         const lHeaders = { 'Content-Type': 'application/json', 'apikey': aApiKey };
         const lResponse = await Fetch.FetchedData<TransitLandData>(aApiEndpoint, lHeaders, aQueryParams);
         // lResponse.mData = lResponse.mData || {};
@@ -87,14 +291,14 @@ namespace TransitLandAPIClient {
 
 
 
-    async function FetchedTransitLandData(aArrayKey: TransitLandArrayKey, aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> {
+    export async function FetchedTransitLandData<K extends TransitLandArrayKey>(aArrayKey: K, aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> {
         const lData: TransitLandData = {};
         let lResponse: Fetch.FetchResult<TransitLandData> | null = null;
         let lLinkToNextSet: string | undefined = aApiEndpoint;
 
         do {
             lResponse = await FetchedTransitLandDataPage(aApiKey, lLinkToNextSet, aQueryParams);
-            lData[aArrayKey] = [...(lData[aArrayKey] || []), ...(lResponse.mData?.[aArrayKey] || [])]
+            lData[aArrayKey] = [...(lData[aArrayKey] || []), ...(lResponse.mData?.[aArrayKey] || [])] as TransitLandData[K]; // Type assertion to make up for failure to infer.
             lLinkToNextSet = lResponse.mData?.meta?.next;
             aQueryParams = undefined;
         } while (lLinkToNextSet);
@@ -200,7 +404,7 @@ namespace UI {
                 });
             });
         }
-    }
+    };
 };
 
 

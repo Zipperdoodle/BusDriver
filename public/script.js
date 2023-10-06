@@ -1,4 +1,21 @@
 "use strict";
+var Util;
+(function (Util) {
+    function DistanceComparator(aOriginX, aOriginY) {
+        return (aX1, aY1, aX2, aY2) => {
+            const lDeltaX1 = aX1 - aOriginX;
+            const lDeltaY1 = aY1 - aOriginY;
+            const lDeltaX2 = aX2 - aOriginX;
+            const lDeltaY2 = aY2 - aOriginY;
+            const lDistanceSquared1 = lDeltaX1 * lDeltaX1 + lDeltaY1 * lDeltaY1;
+            const lDistanceSquared2 = lDeltaX2 * lDeltaX2 + lDeltaY2 * lDeltaY2;
+            return lDistanceSquared1 - lDistanceSquared2;
+        };
+    }
+    Util.DistanceComparator = DistanceComparator;
+    ;
+})(Util || (Util = {}));
+;
 var Fetch;
 (function (Fetch) {
     function UrlQueryString(aApiEndpoint, aQueryParams) {
@@ -33,7 +50,6 @@ var Fetch;
 ;
 var TransitLandAPIClient;
 (function (TransitLandAPIClient) {
-    ;
     TransitLandAPIClient.cDefaultAPIBase = "https://transit.land/api/v2/rest";
     async function FetchedTransitLandDataPage(aApiKey, aApiEndpoint, aQueryParams) {
         const lHeaders = { 'Content-Type': 'application/json', 'apikey': aApiKey };
@@ -41,6 +57,7 @@ var TransitLandAPIClient;
         // lResponse.mData = lResponse.mData || {};
         return lResponse;
     }
+    TransitLandAPIClient.FetchedTransitLandDataPage = FetchedTransitLandDataPage;
     ;
     async function FetchedTransitLandData(aArrayKey, aApiKey, aApiEndpoint, aQueryParams) {
         var _a, _b, _c;
@@ -49,7 +66,7 @@ var TransitLandAPIClient;
         let lLinkToNextSet = aApiEndpoint;
         do {
             lResponse = await FetchedTransitLandDataPage(aApiKey, lLinkToNextSet, aQueryParams);
-            lData[aArrayKey] = [...(lData[aArrayKey] || []), ...(((_a = lResponse.mData) === null || _a === void 0 ? void 0 : _a[aArrayKey]) || [])];
+            lData[aArrayKey] = [...(lData[aArrayKey] || []), ...(((_a = lResponse.mData) === null || _a === void 0 ? void 0 : _a[aArrayKey]) || [])]; // Type assertion to make up for failure to infer.
             lLinkToNextSet = (_c = (_b = lResponse.mData) === null || _b === void 0 ? void 0 : _b.meta) === null || _c === void 0 ? void 0 : _c.next;
             aQueryParams = undefined;
         } while (lLinkToNextSet);
@@ -58,6 +75,7 @@ var TransitLandAPIClient;
         }
         return lResponse;
     }
+    TransitLandAPIClient.FetchedTransitLandData = FetchedTransitLandData;
     ;
     function Client(aApiKey, aApiBase) {
         const lApiBase = aApiBase || TransitLandAPIClient.cDefaultAPIBase;
@@ -147,6 +165,7 @@ var UI;
         }
     }
     UI.PopulateTable = PopulateTable;
+    ;
 })(UI || (UI = {}));
 ;
 var SettingsUI;
