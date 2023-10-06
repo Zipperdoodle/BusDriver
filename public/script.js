@@ -35,13 +35,17 @@ var Fetch;
     async function FetchedData(aApiEndpoint, aHeaders, aQueryParams) {
         try {
             const lUrlQueryString = UrlQueryString(aApiEndpoint, aQueryParams);
+            console.log(`Fetching: ${lUrlQueryString}`);
             const lHeaders = { 'Content-Type': 'application/json', ...aHeaders };
             const lResponse = await fetch(lUrlQueryString, { method: 'GET', headers: lHeaders });
             const lData = await lResponse.json();
+            console.log(`Fetch Response ${lResponse.status}: ***${JSON.stringify(lData)}***`);
             return { mData: lData, mResponseOk: lResponse.ok, mResponseStatus: lResponse.status, mErrorMessage: `Received status code ${lResponse.status}` };
         }
         catch (aError) {
-            return { mResponseOk: false, mResponseStatus: -1, mErrorMessage: aError.message };
+            const lErrorMessage = aError.message;
+            console.log(`Fetch Error: ${lErrorMessage}`);
+            return { mResponseOk: false, mResponseStatus: -1, mErrorMessage: lErrorMessage };
         }
     }
     Fetch.FetchedData = FetchedData;
@@ -140,8 +144,22 @@ var UI;
     }
     UI.HidePanel = HidePanel;
     ;
-    function PopulateTable(aTableId, aData, aHeaders) {
-        const lTable = document.getElementById(aTableId);
+    function PopulateDropdown(aElementID, aKeyValuePairs) {
+        const lDropdown = document.getElementById(aElementID);
+        if (lDropdown) {
+            lDropdown.options.length = 0; // Clear any existing options
+            aKeyValuePairs.forEach(aKeyValuePair => {
+                const [aKey, aValue] = aKeyValuePair;
+                const lOptionElement = document.createElement('option');
+                lOptionElement.text = aValue;
+                lOptionElement.value = aKey;
+                lDropdown.add(lOptionElement);
+            });
+        }
+    }
+    UI.PopulateDropdown = PopulateDropdown;
+    function PopulateTable(aTableID, aData, aHeaders) {
+        const lTable = document.getElementById(aTableID);
         if (lTable) {
             //!@#TODO: Runtime check that lTable is indeed a table element
             lTable.innerHTML = ''; // Clear existing table data
@@ -170,23 +188,20 @@ var UI;
 ;
 var SettingsUI;
 (function (SettingsUI) {
-    SettingsUI.cUserSettings = {
-        TransitLandAPIKey: '',
-        OperatorID: '',
-        BusStopDelaySeconds: '30',
-    };
     function LoadSettingsFromStorage() {
         const lStoredSettings = localStorage.getItem('UserSettings');
         if (lStoredSettings) {
-            Object.assign(SettingsUI.cUserSettings, JSON.parse(lStoredSettings));
+            Object.assign(Main.cUserSettings, JSON.parse(lStoredSettings));
         }
+        Main.cDestinationFilter = Main.cUserSettings.DestinationFilter.split(',').map(aDestination => aDestination.trim());
+        // console.log(JSON.stringify(Main.cDestinationFilter));
     }
     SettingsUI.LoadSettingsFromStorage = LoadSettingsFromStorage;
     ;
     function PopulateSettingsTable() {
         const lSettingsTable = document.getElementById('SettingsTable');
         lSettingsTable.innerHTML = '';
-        Object.entries(SettingsUI.cUserSettings).forEach(([aKey, aValue]) => {
+        Object.entries(Main.cUserSettings).forEach(([aKey, aValue]) => {
             const lRow = lSettingsTable.insertRow();
             lRow.insertCell().textContent = aKey;
             const lValueCell = lRow.insertCell();
@@ -203,10 +218,10 @@ var SettingsUI;
             const lKey = aRow.cells[0].textContent;
             const lValue = aRow.cells[1].firstChild.value;
             if (lKey) {
-                SettingsUI.cUserSettings[lKey] = lValue;
+                Main.cUserSettings[lKey] = lValue;
             }
         });
-        localStorage.setItem('UserSettings', JSON.stringify(SettingsUI.cUserSettings));
+        localStorage.setItem('UserSettings', JSON.stringify(Main.cUserSettings));
         UI.HidePanel('SettingsPanel');
         UI.ShowPanel('DrivingPanel');
     }
@@ -227,18 +242,73 @@ var SettingsUI;
     ;
 })(SettingsUI || (SettingsUI = {}));
 ;
+var NewTripUI;
+(function (NewTripUI) {
+    function RouteSelectionChanged() {
+    }
+    NewTripUI.RouteSelectionChanged = RouteSelectionChanged;
+    ;
+    function StopSelectionChanged() {
+    }
+    NewTripUI.StopSelectionChanged = StopSelectionChanged;
+    ;
+    function TripSelectionChanged() {
+    }
+    NewTripUI.TripSelectionChanged = TripSelectionChanged;
+    ;
+    async function FetchRoutes() {
+        var _a;
+        const lApiKey = Main.cUserSettings.TransitLandAPIKey.trim();
+        const lOperatorID = Main.cUserSettings.OperatorID.trim();
+        if (lApiKey.length > 0 && lOperatorID.length > 0) {
+            const lTransitLand = TransitLandAPIClient.Client(lApiKey);
+            const lFetchResult = await lTransitLand.FetchedRoutes(lOperatorID);
+            if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
+                const lFilteredRoutes = lFetchResult.mData.routes
+                    .filter(aRoute => +aRoute.route_short_name > 0 && +aRoute.route_short_name < 500)
+                    .filter(aRoute => Main.cDestinationFilter.some(aDestination => aRoute.route_long_name.includes(aDestination)));
+                lFilteredRoutes.sort((aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name);
+                Main.cRoutes = lFilteredRoutes;
+                const lKeyValuePairs = lFilteredRoutes.map(aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`]);
+                UI.PopulateDropdown("RoutesList", lKeyValuePairs);
+            }
+        }
+    }
+    NewTripUI.FetchRoutes = FetchRoutes;
+    ;
+    function ButtonStartNewTrip() {
+        UI.HidePanel('NewTripPanel');
+        UI.ShowPanel('DrivingPanel');
+    }
+    NewTripUI.ButtonStartNewTrip = ButtonStartNewTrip;
+    ;
+    function ButtonCancelNewTrip() {
+        UI.HidePanel('NewTripPanel');
+        UI.ShowPanel('DrivingPanel');
+    }
+    NewTripUI.ButtonCancelNewTrip = ButtonCancelNewTrip;
+    ;
+    function ButtonNewTrip() {
+        UI.HidePanel('DrivingPanel');
+        UI.ShowPanel('NewTripPanel');
+    }
+    NewTripUI.ButtonNewTrip = ButtonNewTrip;
+    ;
+})(NewTripUI || (NewTripUI = {}));
+;
 var Main;
 (function (Main) {
-    function ButtonToggleNewTripUI() { } // Empty for now
-    function RouteSelectionChanged() { } // Empty for now
-    function StopSelectionChanged() { } // Empty for now
-    function TripSelectionChanged() { } // Empty for now
-    function ButtonStartNewTrip() { } // Empty for now
-    function ButtonCancelNewTrip() { } // Empty for now
+    Main.cUserSettings = {
+        TransitLandAPIKey: '',
+        OperatorID: '',
+        BusStopDelaySeconds: '30',
+        DestinationFilter: 'Utrecht, Woerden, Mijdrecht',
+    };
     window.onload = () => {
         UI.ShowPanel('DrivingPanel');
         SettingsUI.LoadSettingsFromStorage();
         SettingsUI.PopulateSettingsTable();
+        // NewTripUI.PopulateRoutesList();
     };
 })(Main || (Main = {}));
 ;

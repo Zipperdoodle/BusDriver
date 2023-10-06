@@ -7,7 +7,10 @@ body {
     padding: 20px;
 }
 
-.large-ui button {
+.large-ui button,
+.large-ui input,
+.large-ui select {
+    font-size: 24px;
     padding: 10px 20px;
     margin-right: 10px;
 }
@@ -16,13 +19,13 @@ body {
     margin-bottom: 20px;
 }
 
-#UpcomingStopsTable {
+.large-ui table {
     width: 100%;
     border-collapse: collapse;
 }
 
-#UpcomingStopsTable th,
-#UpcomingStopsTable td {
+.large-ui th,
+.large-ui td {
     padding: 10px;
     border: 1px solid #000;
     text-align: left;

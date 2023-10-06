@@ -53,12 +53,16 @@ namespace Fetch {
     export async function FetchedData<T>(aApiEndpoint: string, aHeaders: Record<string, string>, aQueryParams?: QueryParams): Promise<FetchResult<T>> {
         try {
             const lUrlQueryString = UrlQueryString(aApiEndpoint, aQueryParams);
+            console.log(`Fetching: ${lUrlQueryString}`);
             const lHeaders = { 'Content-Type': 'application/json', ...aHeaders };
             const lResponse = await fetch(lUrlQueryString, { method: 'GET', headers: lHeaders });
             const lData = await lResponse.json();
+            console.log(`Fetch Response ${lResponse.status}: ***${JSON.stringify(lData)}***`);
             return { mData: lData, mResponseOk: lResponse.ok, mResponseStatus: lResponse.status, mErrorMessage: `Received status code ${lResponse.status}` };
         } catch (aError) {
-            return { mResponseOk: false, mResponseStatus: -1, mErrorMessage: (aError as Error).message };
+            const lErrorMessage = (aError as Error).message;
+            console.log(`Fetch Error: ${lErrorMessage}`)
+            return { mResponseOk: false, mResponseStatus: -1, mErrorMessage: lErrorMessage };
         }
     };
 };
@@ -66,14 +70,6 @@ namespace Fetch {
 
 
 namespace TransitLandAPIClient {
-
-    export type TLAPIClient = Record<string, Function>; //!@#TODO...
-    export type GenericRecord = Record<string, string | number | boolean | object>; //!@#HACK
-
-    export type GeolocatedObject = GenericRecord & {
-        lat: number;
-        lon: number;
-    };
 
     export type Point2DGeometry = {
         coordinates: [
@@ -260,6 +256,7 @@ namespace TransitLandAPIClient {
         stop_times: BusStopTime[];
     };
 
+    export type GenericRecord = Record<string, string | number | boolean | object>; //!@#HACK
     export type Departure = GenericRecord; //!@#TODO...
 
     export type TransitLandData = {
@@ -276,13 +273,15 @@ namespace TransitLandAPIClient {
 
     export type TransitLandArrayKey = "operators" | "routes" | "trips" | "stops" | "departures";
 
+    export type AsyncTransitLandFetchResult = Promise<Fetch.FetchResult<TransitLandData>>;
+
 
 
     export const cDefaultAPIBase = "https://transit.land/api/v2/rest";
 
 
 
-    export async function FetchedTransitLandDataPage(aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> {
+    export async function FetchedTransitLandDataPage(aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult {
         const lHeaders = { 'Content-Type': 'application/json', 'apikey': aApiKey };
         const lResponse = await Fetch.FetchedData<TransitLandData>(aApiEndpoint, lHeaders, aQueryParams);
         // lResponse.mData = lResponse.mData || {};
@@ -291,7 +290,7 @@ namespace TransitLandAPIClient {
 
 
 
-    export async function FetchedTransitLandData<K extends TransitLandArrayKey>(aArrayKey: K, aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> {
+    export async function FetchedTransitLandData<K extends TransitLandArrayKey>(aArrayKey: K, aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult {
         const lData: TransitLandData = {};
         let lResponse: Fetch.FetchResult<TransitLandData> | null = null;
         let lLinkToNextSet: string | undefined = aApiEndpoint;
@@ -312,42 +311,42 @@ namespace TransitLandAPIClient {
 
 
 
-    export function Client(aApiKey: string, aApiBase?: string): TLAPIClient {
+    export function Client(aApiKey: string, aApiBase?: string) {
         const lApiBase = aApiBase || cDefaultAPIBase;
         return {
-            FetchedOperators: async (aQueryParams: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedOperators: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/operators`;
                 return await FetchedTransitLandData("operators", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedOperator: async (aOperatorID: string): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedOperator: async (aOperatorID: string): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/operators/${aOperatorID}`;
                 return await FetchedTransitLandData("operators", aApiKey, lApiEndpoint);
             },
-            FetchedRoutes: async (aOperatorID: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedRoutes: async (aOperatorID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes`;
                 return await FetchedTransitLandData("routes", aApiKey, lApiEndpoint, { operator_onestop_id: aOperatorID, ...aQueryParams });
             },
-            FetchedRoute: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedRoute: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}`;
                 return await FetchedTransitLandData("routes", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedTrips: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedTrips: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}/trips`;
                 return await FetchedTransitLandData("trips", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedTrip: async (aRouteID: string, aTripID: string): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedTrip: async (aRouteID: string, aTripID: string): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}/trips/${aTripID}`;
                 return await FetchedTransitLandData("trips", aApiKey, lApiEndpoint);
             },
-            FetchedStops: async (aQueryParams: Fetch.QueryParams): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedStops: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops`;
                 return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedStop: async (aStopID: string): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedStop: async (aStopID: string): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops/${aStopID}`;
                 return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint);
             },
-            FetchedDepartures: async (aStopID: string): Promise<Fetch.FetchResult<TransitLandData>> => {
+            FetchedDepartures: async (aStopID: string): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops/${aStopID}/departures`;
                 return await FetchedTransitLandData("departures", aApiKey, lApiEndpoint);
             },
@@ -359,7 +358,7 @@ namespace TransitLandAPIClient {
 
 namespace UI {
 
-    export function ShowPanel(aPanelID: string) {
+    export function ShowPanel(aPanelID: string): void {
         const lPanel = document.getElementById(aPanelID);
         if (lPanel) {
             lPanel.style.display = 'block';
@@ -368,7 +367,7 @@ namespace UI {
 
 
 
-    export function HidePanel(aPanelID: string) {
+    export function HidePanel(aPanelID: string): void {
         const lPanel = document.getElementById(aPanelID);
         if (lPanel) {
             lPanel.style.display = 'none';
@@ -377,8 +376,25 @@ namespace UI {
 
 
 
-    export function PopulateTable(aTableId: string, aData: Record<string, string | number>[], aHeaders: string[]): void {
-        const lTable = document.getElementById(aTableId) as HTMLTableElement;
+    export function PopulateDropdown(aElementID: string, aKeyValuePairs: [string, string][]): void {
+        const lDropdown = document.getElementById(aElementID) as HTMLSelectElement;
+        if (lDropdown) {
+            lDropdown.options.length = 0; // Clear any existing options
+
+            aKeyValuePairs.forEach(aKeyValuePair => {
+                const [aKey, aValue] = aKeyValuePair;
+                const lOptionElement = document.createElement('option');
+                lOptionElement.text = aValue;
+                lOptionElement.value = aKey;
+                lDropdown.add(lOptionElement);
+            });
+        }
+    }
+
+
+
+    export function PopulateTable(aTableID: string, aData: Record<string, string | number>[], aHeaders: string[]): void {
+        const lTable = document.getElementById(aTableID) as HTMLTableElement;
 
         if (lTable) {
             //!@#TODO: Runtime check that lTable is indeed a table element
@@ -411,19 +427,13 @@ namespace UI {
 
 namespace SettingsUI {
 
-    export const cUserSettings: Record<string, string> = {
-        TransitLandAPIKey: '',
-        OperatorID: '',
-        BusStopDelaySeconds: '30',
-    };
-
-
-
     export function LoadSettingsFromStorage(): void {
         const lStoredSettings = localStorage.getItem('UserSettings');
         if (lStoredSettings) {
-            Object.assign(cUserSettings, JSON.parse(lStoredSettings));
+            Object.assign(Main.cUserSettings, JSON.parse(lStoredSettings));
         }
+        Main.cDestinationFilter = Main.cUserSettings.DestinationFilter.split(',').map(aDestination => aDestination.trim());
+        // console.log(JSON.stringify(Main.cDestinationFilter));
     };
 
 
@@ -432,7 +442,7 @@ namespace SettingsUI {
         const lSettingsTable = document.getElementById('SettingsTable') as HTMLTableElement;
         lSettingsTable.innerHTML = '';
 
-        Object.entries(cUserSettings).forEach(([aKey, aValue]) => {
+        Object.entries(Main.cUserSettings).forEach(([aKey, aValue]) => {
             const lRow = lSettingsTable.insertRow();
             lRow.insertCell().textContent = aKey;
             const lValueCell = lRow.insertCell();
@@ -451,11 +461,11 @@ namespace SettingsUI {
             const lKey = aRow.cells[0].textContent;
             const lValue = (aRow.cells[1].firstChild as HTMLInputElement).value;
             if (lKey) {
-                cUserSettings[lKey] = lValue;
+                Main.cUserSettings[lKey] = lValue;
             }
         });
 
-        localStorage.setItem('UserSettings', JSON.stringify(cUserSettings));
+        localStorage.setItem('UserSettings', JSON.stringify(Main.cUserSettings));
         UI.HidePanel('SettingsPanel');
         UI.ShowPanel('DrivingPanel');
     };
@@ -478,14 +488,85 @@ namespace SettingsUI {
 
 
 
+namespace NewTripUI {
+
+    export function RouteSelectionChanged(): void {
+
+    };
+
+
+
+    export function StopSelectionChanged(): void {
+
+    };
+
+
+
+    export function TripSelectionChanged(): void {
+
+    };
+
+
+
+    export async function FetchRoutes(): Promise<void> {
+        const lApiKey = Main.cUserSettings.TransitLandAPIKey.trim();
+        const lOperatorID = Main.cUserSettings.OperatorID.trim();
+
+        if (lApiKey.length > 0 && lOperatorID.length > 0) {
+            const lTransitLand = TransitLandAPIClient.Client(lApiKey);
+            const lFetchResult = await lTransitLand.FetchedRoutes(lOperatorID);
+
+            if (lFetchResult.mData?.routes) {
+                const lFilteredRoutes = lFetchResult.mData.routes
+                    .filter(aRoute => +aRoute.route_short_name > 0 && +aRoute.route_short_name < 500)
+                    .filter(aRoute => Main.cDestinationFilter.some(aDestination => aRoute.route_long_name.includes(aDestination)));
+                lFilteredRoutes.sort(
+                    (aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name
+                );
+                Main.cRoutes = lFilteredRoutes;
+                const lKeyValuePairs = lFilteredRoutes.map(
+                    aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`] as [string, string]
+                );
+                UI.PopulateDropdown("RoutesList", lKeyValuePairs)
+            }
+        }
+    };
+
+
+
+    export function ButtonStartNewTrip(): void {
+        UI.HidePanel('NewTripPanel');
+        UI.ShowPanel('DrivingPanel');
+    };
+
+
+
+    export function ButtonCancelNewTrip(): void {
+        UI.HidePanel('NewTripPanel');
+        UI.ShowPanel('DrivingPanel');
+    };
+
+
+
+    export function ButtonNewTrip(): void {
+        UI.HidePanel('DrivingPanel');
+        UI.ShowPanel('NewTripPanel');
+    };
+};
+
+
+
 namespace Main {
 
-    function ButtonToggleNewTripUI(): void { }  // Empty for now
-    function RouteSelectionChanged(): void { }  // Empty for now
-    function StopSelectionChanged(): void { }  // Empty for now
-    function TripSelectionChanged(): void { }  // Empty for now
-    function ButtonStartNewTrip(): void { }  // Empty for now
-    function ButtonCancelNewTrip(): void { }  // Empty for now
+    export const cUserSettings: Record<string, string> = {
+        TransitLandAPIKey: '',
+        OperatorID: '',
+        BusStopDelaySeconds: '30',
+        DestinationFilter: 'Utrecht, Woerden, Mijdrecht',
+    };
+
+    export let cDestinationFilter: string[];
+    export let cRoutes: TransitLandAPIClient.Route[];
 
 
 
@@ -493,5 +574,6 @@ namespace Main {
         UI.ShowPanel('DrivingPanel');
         SettingsUI.LoadSettingsFromStorage();
         SettingsUI.PopulateSettingsTable();
+        // NewTripUI.PopulateRoutesList();
     };
 };
