@@ -703,6 +703,16 @@ namespace Main {
 
 
 
+    export let cPositionUpdateCounter = 0;
+    export function PositionWatch(aPosition: GeolocationPosition) {
+        const lCoordinate = aPosition.coords;
+        const lCoordinateSpan = document.getElementById('CoordinateSpan') as HTMLSpanElement;
+        lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${cPositionUpdateCounter})`;
+        cCurrentPosition = aPosition;
+    };
+
+
+
     window.onload = () => {
         UI.ShowPanel('DrivingPanel');
         SettingsUI.LoadSettingsFromStorage();
@@ -711,11 +721,6 @@ namespace Main {
         const lEndTimeInput = document.getElementById('TripSearchMinutes') as HTMLInputElement;
         lEndTimeInput.value = "10";
 
-        const lWatchID = navigator.geolocation.watchPosition(aPosition => {
-            const lCoordinate = aPosition.coords;
-            const lCoordinateSpan = document.getElementById('CoordinateSpan') as HTMLSpanElement;
-            lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()})`
-            cCurrentPosition = aPosition;
-        });
+        const lWatchID = navigator.geolocation.watchPosition(PositionWatch);
     };
 };

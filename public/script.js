@@ -391,18 +391,22 @@ var Main;
     }
     Main.TransitLand = TransitLand;
     ;
+    Main.cPositionUpdateCounter = 0;
+    function PositionWatch(aPosition) {
+        const lCoordinate = aPosition.coords;
+        const lCoordinateSpan = document.getElementById('CoordinateSpan');
+        lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${Main.cPositionUpdateCounter})`;
+        Main.cCurrentPosition = aPosition;
+    }
+    Main.PositionWatch = PositionWatch;
+    ;
     window.onload = () => {
         UI.ShowPanel('DrivingPanel');
         SettingsUI.LoadSettingsFromStorage();
         SettingsUI.PopulateSettingsTable();
         const lEndTimeInput = document.getElementById('TripSearchMinutes');
         lEndTimeInput.value = "10";
-        const lWatchID = navigator.geolocation.watchPosition(aPosition => {
-            const lCoordinate = aPosition.coords;
-            const lCoordinateSpan = document.getElementById('CoordinateSpan');
-            lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()})`;
-            Main.cCurrentPosition = aPosition;
-        });
+        const lWatchID = navigator.geolocation.watchPosition(PositionWatch);
     };
 })(Main || (Main = {}));
 ;
