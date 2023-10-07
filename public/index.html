@@ -10,18 +10,18 @@
 </head>
 
 <body class="large-ui">
+    <div class="large-container">
+        <p id="BusHeadsign">123: Departure - Destination</p>
+    </div>
     <div id="DrivingPanel" class="Panel">
-        <div class="large-container">
-            <p id="BusDetails">123: Departure - Destination</p>
-        </div>
         <div class="large-container">
             <table id="UpcomingStopsTable">
                 <!-- Rows and columns to be populated by script -->
             </table>
         </div>
         <div class="large-container">
-            <button id="SettingsButton" onclick="SettingsUI.ButtonSettings()">Settings</button>
-            <button id="NewTripButton" onclick="NewTripUI.ButtonNewTrip()">New Trip</button>
+            <button id="SettingsButton" onclick="SettingsUI.OpenSettingsUI()">Settings</button>
+            <button id="NewTripButton" onclick="NewTripUI.OpenNewTripUI()">New Trip</button>
             <span id="CoordinateSpan" class="small-ui"></span>
         </div>
     </div>
@@ -43,29 +43,34 @@
             <table>
                 <tr>
                     <td><button onclick="NewTripUI.FetchRoutes()">Fetch (TODO: Cache results)</button></td>
-                    <td><label for="RoutesList">Route</label></td>
-                    <td><select id="RoutesList"></select></td>
+                    <td><label for="RouteList">Route</label></td>
+                    <td><select id="RouteList"></select></td>
                 </tr>
                 <tr>
                     <td><button onclick="NewTripUI.FetchBusStops()">Fetch (TODO: Cache results)</button></td>
-                    <td><label for="BusStopsList">Bus Stop</label></td>
-                    <td><select id="BusStopsList"></select></td>
+                    <td><label for="BusStopList">Bus Stop</label></td>
+                    <td><select id="BusStopList"></select></td>
                 </tr>
                 <tr>
                     <td><label for="TripSearchDate">Service Date: </label><input type="date" id="TripSearchDate"></td>
-                    <td><label for="TripSearchStart">Start Time: </label><input type="time" id="TripSearchStart"></td>
-                    <td><label for="TripSearchMinutes">Minutes: </label><input type="number" id="TripSearchMinutes"></td>
+                    <td><label for="TripSearchStart">Start Time: </label><input type="time" id="TripSearchStart"
+                            oninput="NewTripUI.TripSearchStartChanged()"></td>
+                    <td><label for="TripSearchMinutes">Minutes: </label><input type="number" id="TripSearchMinutes">
+                    </td>
                 </tr>
                 <tr>
                     <td><button onclick="NewTripUI.FetchTrips()">Fetch</button></td>
-                    <td><label for="TripsList">Trip</label></td>
-                    <td><select id="TripsList"></select></td>
+                    <td><label for="TripList">Trip</label></td>
+                    <td><select id="TripList"></select></td>
                 </tr>
             </table>
         </div>
         <div class="large-container">
             <button id="StartNewTripButton" onclick="NewTripUI.ButtonStartNewTrip()">Start</button>
             <button id="CancelNewTripButton" onclick="NewTripUI.ButtonCancelNewTrip()">Cancel</button>
+            <button id="SetCurrentTimeButton" onclick="NewTripUI.ButtonSetCurrentTime()">Set Current Time</button>
+            <button id="SetSimulatedTimeButton" onclick="NewTripUI.ButtonSetSimulatedTime()">Set Simulated Time</button>
+            <label for="SimulatedTimeStart">Simulated Time: </label><input type="time" id="SimulatedTimeStart">
         </div>
     </div>
 

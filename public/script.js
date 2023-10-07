@@ -15,6 +15,15 @@ var Util;
     }
     Util.DistanceComparator = DistanceComparator;
     ;
+    function PerpendicularDistanceMapper(aPoint) {
+        return (aLineStart, aLineEnd) => {
+            const lSlope = (aLineEnd.mY - aLineStart.mY) / (aLineEnd.mX - aLineStart.mX);
+            const lYIntercept = aLineStart.mY - lSlope * aLineStart.mX;
+            return Math.abs(lSlope * aPoint.mX - aPoint.mY + lYIntercept) / Math.sqrt(lSlope * lSlope + 1);
+            ;
+        };
+    }
+    Util.PerpendicularDistanceMapper = PerpendicularDistanceMapper;
     function DatePlusMilliSeconds(aDate, aMilliSeconds) {
         return new Date(aDate.getTime() + aMilliSeconds);
     }
@@ -234,6 +243,19 @@ var SettingsUI;
     }
     SettingsUI.PopulateSettingsTable = PopulateSettingsTable;
     ;
+    function OpenSettingsUI() {
+        UI.HidePanel('DrivingPanel');
+        UI.ShowPanel('SettingsPanel');
+    }
+    SettingsUI.OpenSettingsUI = OpenSettingsUI;
+    ;
+    function CloseSettingsUI() {
+        DrivingUI.Update();
+        UI.HidePanel('SettingsPanel');
+        UI.ShowPanel('DrivingPanel');
+    }
+    SettingsUI.CloseSettingsUI = CloseSettingsUI;
+    ;
     function ButtonSaveSettings() {
         const lSettingsTable = document.getElementById('SettingsTable');
         Array.from(lSettingsTable.rows).forEach(aRow => {
@@ -244,23 +266,15 @@ var SettingsUI;
             }
         });
         localStorage.setItem('UserSettings', JSON.stringify(Main.cUserSettings));
-        UI.HidePanel('SettingsPanel');
-        UI.ShowPanel('DrivingPanel');
+        CloseSettingsUI();
     }
     SettingsUI.ButtonSaveSettings = ButtonSaveSettings;
     ;
     function ButtonCancelSettings() {
         PopulateSettingsTable();
-        UI.HidePanel('SettingsPanel');
-        UI.ShowPanel('DrivingPanel');
+        CloseSettingsUI();
     }
     SettingsUI.ButtonCancelSettings = ButtonCancelSettings;
-    ;
-    function ButtonSettings() {
-        UI.HidePanel('DrivingPanel');
-        UI.ShowPanel('SettingsPanel');
-    }
-    SettingsUI.ButtonSettings = ButtonSettings;
     ;
 })(SettingsUI || (SettingsUI = {}));
 ;
@@ -280,17 +294,18 @@ var NewTripUI;
                 lFilteredRoutes.sort((aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name);
                 Main.cFetchedRoutes = lFilteredRoutes;
                 const lKeyValuePairs = lFilteredRoutes.map(aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`]);
-                UI.PopulateDropdown("RoutesList", lKeyValuePairs);
+                UI.PopulateDropdown("RouteList", lKeyValuePairs);
             }
         }
+        DrivingUI.Update();
     }
     NewTripUI.FetchRoutes = FetchRoutes;
     ;
     async function FetchBusStops() {
         var _a, _b;
         const lTransitLand = Main.TransitLand();
-        const lRoutesList = document.getElementById('RoutesList');
-        const lRouteIndex = lRoutesList === null || lRoutesList === void 0 ? void 0 : lRoutesList.selectedIndex;
+        const lRouteList = document.getElementById('RouteList');
+        const lRouteIndex = lRouteList.selectedIndex;
         if (Main.cCurrentPosition && lTransitLand && lRouteIndex >= 0) {
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
             const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
@@ -301,18 +316,31 @@ var NewTripUI;
                 const lBusStopLocations = lRoute.route_stops.map(aBusStop => ({ mY: aBusStop.stop.geometry.coordinates[0], mX: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop }));
                 lBusStopLocations.sort(Util.DistanceComparator({ mX: lCurrentLatitude, mY: lCurrentLongitude }));
                 const lKeyValuePairs = lBusStopLocations.map(aBusStopLocation => [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`]);
-                UI.PopulateDropdown("BusStopsList", lKeyValuePairs);
+                UI.PopulateDropdown("BusStopList", lKeyValuePairs);
                 Main.cFetchedRoute = lRoute;
             }
         }
+        DrivingUI.Update();
     }
     NewTripUI.FetchBusStops = FetchBusStops;
+    ;
+    function TripListChanged() {
+        const lTripList = document.getElementById('TripList');
+        const lTripIndex = lTripList.selectedIndex;
+        if (lTripIndex >= 0) {
+            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lTripStartTime = lDeparture.departure_time;
+            const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart');
+            lSimulatedTimeInput.value = lTripStartTime;
+        }
+    }
+    NewTripUI.TripListChanged = TripListChanged;
     ;
     async function FetchTrips() {
         var _a, _b;
         const lTransitLand = Main.TransitLand();
-        const lBusStopsList = document.getElementById('BusStopsList');
-        const lBusStopID = lBusStopsList === null || lBusStopsList === void 0 ? void 0 : lBusStopsList.value;
+        const lBusStopList = document.getElementById('BusStopList');
+        const lBusStopID = lBusStopList.value;
         if (Main.cFetchedRoute && lTransitLand && lBusStopID) {
             const lDateInput = document.getElementById('TripSearchDate');
             const lStartTimeInput = document.getElementById('TripSearchStart');
@@ -328,40 +356,106 @@ var NewTripUI;
             const lFetchResult = await lTransitLand.FetchedDepartures(lBusStopID, lQueryParams);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.stops) {
                 const lDepartures = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.stops[0].departures;
-                const lKeyValuePairs = lDepartures === null || lDepartures === void 0 ? void 0 : lDepartures.map(aDeparture => { var _a; return [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${(_a = aDeparture.trip.route) === null || _a === void 0 ? void 0 : _a.route_short_name}: ${aDeparture.trip.trip_headsign}`]; });
-                UI.PopulateDropdown("TripsList", lKeyValuePairs || []);
+                if (lDepartures) {
+                    const lKeyValuePairs = lDepartures.map(aDeparture => { var _a; return [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${(_a = aDeparture.trip.route) === null || _a === void 0 ? void 0 : _a.route_short_name}: ${aDeparture.trip.trip_headsign}`]; });
+                    UI.PopulateDropdown("TripList", lKeyValuePairs || []);
+                    Main.cFetchedDepartures = lDepartures;
+                    TripListChanged();
+                }
             }
         }
+        DrivingUI.Update();
     }
     NewTripUI.FetchTrips = FetchTrips;
     ;
-    function ButtonStartNewTrip() {
-        UI.HidePanel('NewTripPanel');
-        UI.ShowPanel('DrivingPanel');
+    function TripSearchStartChanged() {
+        console.log("TripSearchStartChanged");
+        const lStartTimeInput = document.getElementById('TripSearchStart');
+        const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart');
+        lSimulatedTimeInput.value = lStartTimeInput.value;
+        DrivingUI.Update();
     }
-    NewTripUI.ButtonStartNewTrip = ButtonStartNewTrip;
+    NewTripUI.TripSearchStartChanged = TripSearchStartChanged;
     ;
-    function ButtonCancelNewTrip() {
-        UI.HidePanel('NewTripPanel');
-        UI.ShowPanel('DrivingPanel');
-    }
-    NewTripUI.ButtonCancelNewTrip = ButtonCancelNewTrip;
-    ;
-    function ButtonNewTrip() {
+    function OpenNewTripUI() {
         const lNow = Main.CurrentTime();
         const lDateString = Util.DateString(lNow);
         const lTimeString = Util.TimeString(lNow);
         const lDateInput = document.getElementById('TripSearchDate');
         const lStartTimeInput = document.getElementById('TripSearchStart');
+        const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart');
         // Set the values of the input elements
         lDateInput.value = lDateString;
         lStartTimeInput.value = lTimeString;
+        lSimulatedTimeInput.value = lTimeString;
         UI.HidePanel('DrivingPanel');
         UI.ShowPanel('NewTripPanel');
+        DrivingUI.Update();
     }
-    NewTripUI.ButtonNewTrip = ButtonNewTrip;
+    NewTripUI.OpenNewTripUI = OpenNewTripUI;
+    ;
+    function CloseNewTripUI() {
+        DrivingUI.Update();
+        UI.HidePanel('NewTripPanel');
+        UI.ShowPanel('DrivingPanel');
+    }
+    NewTripUI.CloseNewTripUI = CloseNewTripUI;
+    ;
+    async function ButtonStartNewTrip() {
+        var _a, _b, _c;
+        const lTransitLand = Main.TransitLand();
+        const lTripList = document.getElementById('TripList');
+        const lTripIndex = lTripList.selectedIndex;
+        if (lTransitLand && lTripIndex >= 0) {
+            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lTripID = lDeparture.trip.id;
+            const lRouteID = (_a = lDeparture.trip.route) === null || _a === void 0 ? void 0 : _a.onestop_id;
+            if (lRouteID && ((_b = Main.cFetchedTrip) === null || _b === void 0 ? void 0 : _b.id) != lTripID) {
+                const lFetchResult = await lTransitLand.FetchedTrip(lRouteID, lTripID.toString());
+                if ((_c = lFetchResult.mData) === null || _c === void 0 ? void 0 : _c.trips) {
+                    Main.cFetchedTrip = lFetchResult.mData.trips[0];
+                }
+            }
+        }
+        CloseNewTripUI();
+    }
+    NewTripUI.ButtonStartNewTrip = ButtonStartNewTrip;
+    ;
+    function ButtonCancelNewTrip() {
+        CloseNewTripUI();
+    }
+    NewTripUI.ButtonCancelNewTrip = ButtonCancelNewTrip;
+    ;
+    function ButtonSetCurrentTime() {
+        const lNow = new Date();
+        Main.SimulatedTimeSync(lNow, lNow);
+        DrivingUI.Update();
+    }
+    NewTripUI.ButtonSetCurrentTime = ButtonSetCurrentTime;
+    ;
+    function ButtonSetSimulatedTime() {
+        const lDateInput = document.getElementById('TripSearchDate');
+        const lTripList = document.getElementById('TripList');
+        const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart');
+        Main.SimulatedTimeSync(new Date(), Util.DateFromStrings(lDateInput.value, lSimulatedTimeInput.value));
+        DrivingUI.Update();
+    }
+    NewTripUI.ButtonSetSimulatedTime = ButtonSetSimulatedTime;
     ;
 })(NewTripUI || (NewTripUI = {}));
+;
+var DrivingUI;
+(function (DrivingUI) {
+    function Update() {
+        var _a, _b;
+        const lCurrentTime = Main.CurrentTime();
+        const lBusNumber = ((_a = Main.cFetchedRoute) === null || _a === void 0 ? void 0 : _a.route_short_name) || "999";
+        const lTripHeadsign = ((_b = Main.cFetchedTrip) === null || _b === void 0 ? void 0 : _b.trip_headsign) || "No Service";
+        Main.SetHeadsign("BusHeadsign", lBusNumber, lTripHeadsign, lCurrentTime);
+    }
+    DrivingUI.Update = Update;
+    ;
+})(DrivingUI || (DrivingUI = {}));
 ;
 var Main;
 (function (Main) {
@@ -371,16 +465,22 @@ var Main;
         BusStopDelaySeconds: '30',
         DestinationFilter: '', // Comma-separated list of partial headsign matches.
     };
-    Main.cInitializationTime = new Date();
-    Main.cSimulationStartTime = Main.cInitializationTime;
+    Main.cRealStartTime = new Date();
+    Main.cSimulatedStartTime = Main.cRealStartTime;
     function CurrentTime() {
         const lNow = new Date();
-        const lElapsedTime = lNow.getTime() - Main.cInitializationTime.getTime();
-        const lSimulatedNow = Util.DatePlusMilliSeconds(Main.cSimulationStartTime, lElapsedTime);
+        const lElapsedTime = lNow.getTime() - Main.cRealStartTime.getTime();
+        const lSimulatedNow = Util.DatePlusMilliSeconds(Main.cSimulatedStartTime, lElapsedTime);
         return lSimulatedNow;
         // return lNow
     }
     Main.CurrentTime = CurrentTime;
+    ;
+    function SimulatedTimeSync(aRealTime, aSimulatedTime) {
+        Main.cRealStartTime = aRealTime;
+        Main.cSimulatedStartTime = aSimulatedTime;
+    }
+    Main.SimulatedTimeSync = SimulatedTimeSync;
     ;
     function TransitLand() {
         const lApiKey = Main.cUserSettings.TransitLandAPIKey.trim();
@@ -390,6 +490,12 @@ var Main;
     }
     Main.TransitLand = TransitLand;
     ;
+    function SetHeadsign(aElementID, aBusNumber, aTripHeadsign, aCurrentTime) {
+        const lBusHeadsignField = document.getElementById(aElementID);
+        lBusHeadsignField.textContent = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+    }
+    Main.SetHeadsign = SetHeadsign;
+    ;
     Main.cPositionUpdateCounter = 0;
     function PositionWatch(aPosition) {
         const lCoordinate = aPosition.coords;
@@ -397,6 +503,7 @@ var Main;
         Main.cPositionUpdateCounter++;
         lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${Main.cPositionUpdateCounter})`;
         Main.cCurrentPosition = aPosition;
+        DrivingUI.Update();
     }
     Main.PositionWatch = PositionWatch;
     ;

@@ -22,6 +22,16 @@ namespace Util {
 
 
 
+    export function PerpendicularDistanceMapper(aPoint: Coordinate) {
+        return (aLineStart: Coordinate, aLineEnd: Coordinate) => {
+            const lSlope = (aLineEnd.mY - aLineStart.mY) / (aLineEnd.mX - aLineStart.mX);
+            const lYIntercept = aLineStart.mY - lSlope * aLineStart.mX;
+            return Math.abs(lSlope * aPoint.mX - aPoint.mY + lYIntercept) / Math.sqrt(lSlope * lSlope + 1);;
+        }
+    }
+
+
+
     export function DatePlusMilliSeconds(aDate: Date, aMilliSeconds: number): Date {
         return new Date(aDate.getTime() + aMilliSeconds);
     };
@@ -505,6 +515,21 @@ namespace SettingsUI {
 
 
 
+    export function OpenSettingsUI(): void {
+        UI.HidePanel('DrivingPanel');
+        UI.ShowPanel('SettingsPanel');
+    };
+
+
+
+    export function CloseSettingsUI(): void {
+        DrivingUI.Update();
+        UI.HidePanel('SettingsPanel');
+        UI.ShowPanel('DrivingPanel');
+    };
+
+
+
     export function ButtonSaveSettings(): void {
         const lSettingsTable = document.getElementById('SettingsTable') as HTMLTableElement;
 
@@ -517,23 +542,14 @@ namespace SettingsUI {
         });
 
         localStorage.setItem('UserSettings', JSON.stringify(Main.cUserSettings));
-        UI.HidePanel('SettingsPanel');
-        UI.ShowPanel('DrivingPanel');
+        CloseSettingsUI();
     };
 
 
 
     export function ButtonCancelSettings(): void {
         PopulateSettingsTable();
-        UI.HidePanel('SettingsPanel');
-        UI.ShowPanel('DrivingPanel');
-    };
-
-
-
-    export function ButtonSettings(): void {
-        UI.HidePanel('DrivingPanel');
-        UI.ShowPanel('SettingsPanel');
+        CloseSettingsUI();
     };
 };
 
@@ -565,17 +581,18 @@ namespace NewTripUI {
                 const lKeyValuePairs = lFilteredRoutes.map(
                     aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`] as [string, string]
                 );
-                UI.PopulateDropdown("RoutesList", lKeyValuePairs)
+                UI.PopulateDropdown("RouteList", lKeyValuePairs)
             }
         }
+        DrivingUI.Update();
     };
 
 
 
     export async function FetchBusStops(): Promise<void> {
         const lTransitLand = Main.TransitLand();
-        const lRoutesList = document.getElementById('RoutesList') as HTMLSelectElement;
-        const lRouteIndex = lRoutesList?.selectedIndex;
+        const lRouteList = document.getElementById('RouteList') as HTMLSelectElement;
+        const lRouteIndex = lRouteList.selectedIndex;
 
         if (Main.cCurrentPosition && lTransitLand && lRouteIndex >= 0) {
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
@@ -592,9 +609,24 @@ namespace NewTripUI {
                 const lKeyValuePairs = lBusStopLocations.map(
                     aBusStopLocation => [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`] as [string, string]
                 );
-                UI.PopulateDropdown("BusStopsList", lKeyValuePairs)
+                UI.PopulateDropdown("BusStopList", lKeyValuePairs)
                 Main.cFetchedRoute = lRoute;
             }
+        }
+        DrivingUI.Update();
+    };
+
+
+
+    export function TripListChanged() {
+        const lTripList = document.getElementById('TripList') as HTMLSelectElement;
+        const lTripIndex = lTripList.selectedIndex;
+
+        if (lTripIndex >= 0) {
+            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lTripStartTime = lDeparture.departure_time;
+            const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart') as HTMLInputElement;
+            lSimulatedTimeInput.value = lTripStartTime;
         }
     };
 
@@ -602,8 +634,8 @@ namespace NewTripUI {
 
     export async function FetchTrips(): Promise<void> {
         const lTransitLand = Main.TransitLand();
-        const lBusStopsList = document.getElementById('BusStopsList') as HTMLSelectElement;
-        const lBusStopID = lBusStopsList?.value;
+        const lBusStopList = document.getElementById('BusStopList') as HTMLSelectElement;
+        const lBusStopID = lBusStopList.value;
 
         if (Main.cFetchedRoute && lTransitLand && lBusStopID) {
             const lDateInput = document.getElementById('TripSearchDate') as HTMLInputElement;
@@ -621,43 +653,114 @@ namespace NewTripUI {
 
             if (lFetchResult.mData?.stops) {
                 const lDepartures = lFetchResult.mData?.stops[0].departures;
-                const lKeyValuePairs = lDepartures?.map(
-                    aDeparture => [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.route?.route_short_name}: ${aDeparture.trip.trip_headsign}`] as [string, string]
-                );
-                UI.PopulateDropdown("TripsList", lKeyValuePairs || [])
+                if (lDepartures) {
+                    const lKeyValuePairs = lDepartures.map(
+                        aDeparture => [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.route?.route_short_name}: ${aDeparture.trip.trip_headsign}`] as [string, string]
+                    );
+                    UI.PopulateDropdown("TripList", lKeyValuePairs || [])
+                    Main.cFetchedDepartures = lDepartures;
+                    TripListChanged();
+                }
             }
         }
+        DrivingUI.Update();
     };
 
 
 
-    export function ButtonStartNewTrip(): void {
-        UI.HidePanel('NewTripPanel');
-        UI.ShowPanel('DrivingPanel');
+    export function TripSearchStartChanged(): void {
+        console.log("TripSearchStartChanged");
+        const lStartTimeInput = document.getElementById('TripSearchStart') as HTMLInputElement;
+        const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart') as HTMLInputElement;
+        lSimulatedTimeInput.value = lStartTimeInput.value;
+        DrivingUI.Update();
     };
 
 
 
-    export function ButtonCancelNewTrip(): void {
-        UI.HidePanel('NewTripPanel');
-        UI.ShowPanel('DrivingPanel');
-    };
-
-
-
-    export function ButtonNewTrip(): void {
+    export function OpenNewTripUI(): void {
         const lNow = Main.CurrentTime();
         const lDateString = Util.DateString(lNow);
         const lTimeString = Util.TimeString(lNow);
         const lDateInput = document.getElementById('TripSearchDate') as HTMLInputElement;
         const lStartTimeInput = document.getElementById('TripSearchStart') as HTMLInputElement;
+        const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart') as HTMLInputElement;
 
         // Set the values of the input elements
         lDateInput.value = lDateString;
         lStartTimeInput.value = lTimeString;
+        lSimulatedTimeInput.value = lTimeString;
 
         UI.HidePanel('DrivingPanel');
         UI.ShowPanel('NewTripPanel');
+        DrivingUI.Update();
+    };
+
+
+
+    export function CloseNewTripUI(): void {
+        DrivingUI.Update();
+        UI.HidePanel('NewTripPanel');
+        UI.ShowPanel('DrivingPanel');
+    };
+
+
+
+    export async function ButtonStartNewTrip(): Promise<void> {
+        const lTransitLand = Main.TransitLand();
+        const lTripList = document.getElementById('TripList') as HTMLSelectElement;
+        const lTripIndex = lTripList.selectedIndex;
+
+        if (lTransitLand && lTripIndex >= 0) {
+            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lTripID = lDeparture.trip.id;
+            const lRouteID = lDeparture.trip.route?.onestop_id;
+
+            if (lRouteID && Main.cFetchedTrip?.id != lTripID) {
+                const lFetchResult = await lTransitLand.FetchedTrip(lRouteID, lTripID.toString());
+                if (lFetchResult.mData?.trips) {
+                    Main.cFetchedTrip = lFetchResult.mData.trips[0];
+                }
+            }
+        }
+
+        CloseNewTripUI();
+    };
+
+
+
+    export function ButtonCancelNewTrip(): void {
+        CloseNewTripUI();
+    };
+
+
+
+    export function ButtonSetCurrentTime(): void {
+        const lNow = new Date();
+        Main.SimulatedTimeSync(lNow, lNow);
+        DrivingUI.Update();
+    };
+
+
+
+    export function ButtonSetSimulatedTime(): void {
+        const lDateInput = document.getElementById('TripSearchDate') as HTMLInputElement;
+        const lTripList = document.getElementById('TripList') as HTMLSelectElement;
+        const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart') as HTMLInputElement;
+        Main.SimulatedTimeSync(new Date(), Util.DateFromStrings(lDateInput.value, lSimulatedTimeInput.value));
+        DrivingUI.Update();
+    };
+};
+
+
+
+namespace DrivingUI {
+
+    export function Update() {
+        const lCurrentTime = Main.CurrentTime();
+        const lBusNumber = Main.cFetchedRoute?.route_short_name || "999";
+        const lTripHeadsign = Main.cFetchedTrip?.trip_headsign || "No Service";
+        Main.SetHeadsign("BusHeadsign", lBusNumber, lTripHeadsign, lCurrentTime);
     };
 };
 
@@ -675,19 +778,27 @@ namespace Main {
     export let cDestinationFilter: string[];
     export let cFetchedRoutes: TransitLandAPIClient.Route[];
     export let cFetchedRoute: TransitLandAPIClient.Route;
+    export let cFetchedDepartures: TransitLandAPIClient.Departure[];
     export let cFetchedTrip: TransitLandAPIClient.Trip;
     export let cCurrentPosition: GeolocationPosition;
-    export let cInitializationTime = new Date();
-    export let cSimulationStartTime = cInitializationTime;
+    export let cRealStartTime = new Date();
+    export let cSimulatedStartTime = cRealStartTime;
 
 
 
     export function CurrentTime(): Date {
         const lNow = new Date();
-        const lElapsedTime = lNow.getTime() - cInitializationTime.getTime();
-        const lSimulatedNow = Util.DatePlusMilliSeconds(cSimulationStartTime, lElapsedTime);
+        const lElapsedTime = lNow.getTime() - cRealStartTime.getTime();
+        const lSimulatedNow = Util.DatePlusMilliSeconds(cSimulatedStartTime, lElapsedTime);
         return lSimulatedNow;
         // return lNow
+    };
+
+
+
+    export function SimulatedTimeSync(aRealTime: Date, aSimulatedTime: Date): void {
+        cRealStartTime = aRealTime;
+        cSimulatedStartTime = aSimulatedTime;
     };
 
 
@@ -702,6 +813,13 @@ namespace Main {
 
 
 
+    export function SetHeadsign(aElementID: string, aBusNumber: string, aTripHeadsign: string, aCurrentTime: Date): void {
+        const lBusHeadsignField = document.getElementById(aElementID) as HTMLParagraphElement;
+        lBusHeadsignField.textContent = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+    };
+
+
+
     export let cPositionUpdateCounter = 0;
     export function PositionWatch(aPosition: GeolocationPosition) {
         const lCoordinate = aPosition.coords;
@@ -709,6 +827,7 @@ namespace Main {
         cPositionUpdateCounter++;
         lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${cPositionUpdateCounter})`;
         cCurrentPosition = aPosition;
+        DrivingUI.Update();
     };
 
 
