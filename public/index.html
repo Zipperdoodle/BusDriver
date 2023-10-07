@@ -22,6 +22,7 @@
         <div class="large-container">
             <button id="SettingsButton" onclick="SettingsUI.ButtonSettings()">Settings</button>
             <button id="NewTripButton" onclick="NewTripUI.ButtonNewTrip()">New Trip</button>
+            <span id="CoordinateSpan" class="small-ui"></span>
         </div>
     </div>
 
@@ -43,17 +44,22 @@
                 <tr>
                     <td><button onclick="NewTripUI.FetchRoutes()">Fetch</button></td>
                     <td><label for="RoutesList">Route</label></td>
-                    <td><select id="RoutesList" onchange="NewTripUI.RouteSelectionChanged()"></select></td>
+                    <td><select id="RoutesList"></select></td>
                 </tr>
                 <tr>
                     <td><button onclick="NewTripUI.FetchBusStops()">Fetch</button></td>
                     <td><label for="BusStopsList">Bus Stop</label></td>
-                    <td><select id="BusStopsList" onchange="NewTripUI.StopSelectionChanged()"></select></td>
+                    <td><select id="BusStopsList"></select></td>
+                </tr>
+                <tr>
+                    <td><label for="TripSearchDate">Service Date</label><input type="date" id="TripSearchDate"></td>
+                    <td><label for="TripSearchStart">Start Time</label><input type="time" id="TripSearchStart"></td>
+                    <td><label for="TripSearchMinutes">End Time</label><input type="number" id="TripSearchMinutes"></td>
                 </tr>
                 <tr>
                     <td><button onclick="NewTripUI.FetchTrips()">Fetch</button></td>
                     <td><label for="TripsList">Trip</label></td>
-                    <td><select id="TripsList" onchange="NewTripUI.TripSelectionChanged()"></select></td>
+                    <td><select id="TripsList"></select></td>
                 </tr>
             </table>
         </div>

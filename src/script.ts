@@ -1,16 +1,47 @@
 
 namespace Util {
 
-    export function DistanceComparator(aOriginX: number, aOriginY: number): (aX1: number, aY1: number, aX2: number, aY2: number) => number {
-        return (aX1: number, aY1: number, aX2: number, aY2: number): number => {
-            const lDeltaX1 = aX1 - aOriginX;
-            const lDeltaY1 = aY1 - aOriginY;
-            const lDeltaX2 = aX2 - aOriginX;
-            const lDeltaY2 = aY2 - aOriginY;
+    export interface Coordinate {
+        mX: number;
+        mY: number;
+    };
+
+
+
+    export function DistanceComparator(aOrigin: Coordinate) {
+        return (aPosition1: Coordinate, aPosition2: Coordinate): number => {
+            const lDeltaX1 = aPosition1.mX - aOrigin.mX;
+            const lDeltaY1 = aPosition1.mY - aOrigin.mY;
+            const lDeltaX2 = aPosition2.mX - aOrigin.mX;
+            const lDeltaY2 = aPosition2.mY - aOrigin.mY;
             const lDistanceSquared1 = lDeltaX1 * lDeltaX1 + lDeltaY1 * lDeltaY1;
             const lDistanceSquared2 = lDeltaX2 * lDeltaX2 + lDeltaY2 * lDeltaY2;
             return lDistanceSquared1 - lDistanceSquared2;
         };
+    };
+
+
+
+    export function DatePlusMilliSeconds(aDate: Date, aMilliSeconds: number): Date {
+        return new Date(aDate.getTime() + aMilliSeconds);
+    };
+
+
+
+    export function DateFromStrings(aDateString: string, aTimeString: string): Date {
+        return new Date(`${aDateString}T${aTimeString}`);
+    };
+
+
+
+    export function DateString(aDate: Date): string {
+        return `${aDate.getFullYear()}-${(aDate.getMonth() + 1).toString().padStart(2, '0')}-${aDate.getDate().toString().padStart(2, '0')}`;
+    };
+
+
+
+    export function TimeString(aDate: Date): string {
+        return `${aDate.getHours().toString().padStart(2, '0')}:${aDate.getMinutes().toString().padStart(2, '0')}:${aDate.getSeconds().toString().padStart(2, '0')}`;
     };
 };
 
@@ -40,7 +71,8 @@ namespace Fetch {
             Object.keys(aQueryParams).forEach(aKey => {
                 const lValue = aQueryParams[aKey];
                 if (lValue !== undefined) {
-                    lUrl.searchParams.append(encodeURIComponent(aKey), encodeURIComponent(lValue.toString()));
+                    // lUrl.searchParams.append(encodeURIComponent(aKey), encodeURIComponent(lValue.toString()));
+                    lUrl.searchParams.append(aKey, lValue.toString());
                 }
             });
         }
@@ -162,9 +194,10 @@ namespace TransitLandAPIClient {
     };
 
     export type BusStop = BusStopSubset & {
+        departures?: Departure[];
         location_type: number;
         onestop_id: string;
-        parent: BusStopSubset | null;
+        parent?: BusStop | BusStopSubset | null; //??? TBD
         place: BusStopPlace;
         platform_code: string | null;
         stop_code: string;
@@ -177,7 +210,6 @@ namespace TransitLandAPIClient {
     };
 
     export type BusStopTime = {
-        stop: BusStopSubset;
         arrival_time: string;
         departure_time: string;
         drop_off_type: number;
@@ -186,6 +218,28 @@ namespace TransitLandAPIClient {
         stop_headsign: string;
         stop_sequence: number;
         timepoint: 0 | 1;
+    };
+
+    export type BusStopWithTime = BusStopTime & {
+        stop: BusStopSubset;
+    };
+
+    export type ScheduledTime = {
+        delay: number | null;
+        estimated: string | null;
+        estimated_utc: string | null;
+        scheduled: string;
+        uncertainty: number | null;
+    };
+
+    export type Departure = BusStopTime & {
+        arrival: ScheduledTime;
+        continuous_drop_off: number | null;
+        continuous_pickup: number | null;
+        departure: ScheduledTime;
+        service_date: string;
+        shape_dist_traveled: number;
+        trip: TripSubset
     };
 
     export type RouteSubset = {
@@ -223,7 +277,7 @@ namespace TransitLandAPIClient {
     export type TripSubset = {
         bikes_allowed: 0 | 1;
         block_id: string;
-        calendar: {
+        calendar?: {
             service_id: string;
             added_dates: string[];
             removed_dates: string[];
@@ -247,17 +301,15 @@ namespace TransitLandAPIClient {
         trip_id: string;
         trip_short_name: string;
         wheelchair_accessible: 0 | 1;
+        route?: RouteSubset;
     };
 
     export type Trip = TripSubset & {
         shape: ShapeSubset & {
             geometry: Line3DGeometry;
         };
-        stop_times: BusStopTime[];
+        stop_times: BusStopWithTime[];
     };
-
-    export type GenericRecord = Record<string, string | number | boolean | object>; //!@#HACK
-    export type Departure = GenericRecord; //!@#TODO...
 
     export type TransitLandData = {
         meta?: {
@@ -268,10 +320,9 @@ namespace TransitLandAPIClient {
         routes?: Route[];
         trips?: Trip[];
         stops?: BusStop[];
-        departures?: Departure[];
     };
 
-    export type TransitLandArrayKey = "operators" | "routes" | "trips" | "stops" | "departures";
+    export type TransitLandArrayKey = "operators" | "routes" | "trips" | "stops";
 
     export type AsyncTransitLandFetchResult = Promise<Fetch.FetchResult<TransitLandData>>;
 
@@ -338,17 +389,17 @@ namespace TransitLandAPIClient {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}/trips/${aTripID}`;
                 return await FetchedTransitLandData("trips", aApiKey, lApiEndpoint);
             },
-            FetchedStops: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
+            FetchedBusStops: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops`;
                 return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedStop: async (aStopID: string): AsyncTransitLandFetchResult => {
-                const lApiEndpoint = `${lApiBase}/stops/${aStopID}`;
+            FetchedBusStop: async (aBusStopID: string): AsyncTransitLandFetchResult => {
+                const lApiEndpoint = `${lApiBase}/stops/${aBusStopID}`;
                 return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint);
             },
-            FetchedDepartures: async (aStopID: string): AsyncTransitLandFetchResult => {
+            FetchedDepartures: async (aStopID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops/${aStopID}/departures`;
-                return await FetchedTransitLandData("departures", aApiKey, lApiEndpoint);
+                return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
             },
         };
     };
@@ -490,30 +541,17 @@ namespace SettingsUI {
 
 namespace NewTripUI {
 
-    export function RouteSelectionChanged(): void {
-
-    };
-
-
-
-    export function StopSelectionChanged(): void {
-
-    };
-
-
-
-    export function TripSelectionChanged(): void {
-
+    export interface LocatedObject<T> extends Util.Coordinate {
+        mObject: T;
     };
 
 
 
     export async function FetchRoutes(): Promise<void> {
-        const lApiKey = Main.cUserSettings.TransitLandAPIKey.trim();
+        const lTransitLand = Main.TransitLand();
         const lOperatorID = Main.cUserSettings.OperatorID.trim();
 
-        if (lApiKey.length > 0 && lOperatorID.length > 0) {
-            const lTransitLand = TransitLandAPIClient.Client(lApiKey);
+        if (lTransitLand && lOperatorID.length > 0) {
             const lFetchResult = await lTransitLand.FetchedRoutes(lOperatorID);
 
             if (lFetchResult.mData?.routes) {
@@ -523,11 +561,71 @@ namespace NewTripUI {
                 lFilteredRoutes.sort(
                     (aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name
                 );
-                Main.cRoutes = lFilteredRoutes;
+                Main.cFetchedRoutes = lFilteredRoutes;
                 const lKeyValuePairs = lFilteredRoutes.map(
                     aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`] as [string, string]
                 );
                 UI.PopulateDropdown("RoutesList", lKeyValuePairs)
+            }
+        }
+    };
+
+
+
+    export async function FetchBusStops(): Promise<void> {
+        const lTransitLand = Main.TransitLand();
+        const lRoutesList = document.getElementById('RoutesList') as HTMLSelectElement;
+        const lRouteIndex = lRoutesList?.selectedIndex;
+
+        if (Main.cCurrentPosition && lTransitLand && lRouteIndex >= 0) {
+            const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
+            const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
+            const lRouteSubset = Main.cFetchedRoutes[lRouteIndex];
+            const lFetchResult = await lTransitLand.FetchedRoute(lRouteSubset.onestop_id);
+
+            if (lFetchResult.mData?.routes) {
+                const lRoute = lFetchResult.mData?.routes[0];
+                //!@#TODO: Sort the route_stops by distance from the current geolocation...
+                const lBusStopLocations = lRoute.route_stops.map(
+                    aBusStop => ({ mY: aBusStop.stop.geometry.coordinates[0], mX: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop } as LocatedObject<TransitLandAPIClient.BusStopSubset>)
+                );
+                lBusStopLocations.sort(Util.DistanceComparator({ mX: lCurrentLatitude, mY: lCurrentLongitude }));
+                const lKeyValuePairs = lBusStopLocations.map(
+                    aBusStopLocation => [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`] as [string, string]
+                );
+                UI.PopulateDropdown("BusStopsList", lKeyValuePairs)
+                Main.cFetchedRoute = lRoute;
+            }
+        }
+    };
+
+
+
+    export async function FetchTrips(): Promise<void> {
+        const lTransitLand = Main.TransitLand();
+        const lBusStopsList = document.getElementById('BusStopsList') as HTMLSelectElement;
+        const lBusStopID = lBusStopsList?.value;
+
+        if (Main.cFetchedRoute && lTransitLand && lBusStopID) {
+            const lDateInput = document.getElementById('TripSearchDate') as HTMLInputElement;
+            const lStartTimeInput = document.getElementById('TripSearchStart') as HTMLInputElement;
+            const lMinutesInput = document.getElementById('TripSearchMinutes') as HTMLInputElement;
+            const lStartTime = Util.DateFromStrings(lDateInput.value, lStartTimeInput.value);
+            const lEndTime = Util.DatePlusMilliSeconds(lStartTime, +lMinutesInput.value * 60 * 1000);
+            const lQueryParams = {
+                service_date: lDateInput.value,
+                start_time: lStartTimeInput.value,
+                end_time: Util.TimeString(lEndTime)
+            };
+            console.log(lQueryParams);
+            const lFetchResult = await lTransitLand.FetchedDepartures(lBusStopID, lQueryParams);
+
+            if (lFetchResult.mData?.stops) {
+                const lDepartures = lFetchResult.mData?.stops[0].departures;
+                const lKeyValuePairs = lDepartures?.map(
+                    aDeparture => [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.trip_headsign}`] as [string, string]
+                );
+                UI.PopulateDropdown("TripsList", lKeyValuePairs || [])
             }
         }
     };
@@ -549,6 +647,16 @@ namespace NewTripUI {
 
 
     export function ButtonNewTrip(): void {
+        const lNow = Main.CurrentTime();
+        const lDateString = Util.DateString(lNow);
+        const lTimeString = Util.TimeString(lNow);
+        const lDateInput = document.getElementById('TripSearchDate') as HTMLInputElement;
+        const lStartTimeInput = document.getElementById('TripSearchStart') as HTMLInputElement;
+
+        // Set the values of the input elements
+        lDateInput.value = lDateString;
+        lStartTimeInput.value = lTimeString;
+
         UI.HidePanel('DrivingPanel');
         UI.ShowPanel('NewTripPanel');
     };
@@ -566,7 +674,32 @@ namespace Main {
     };
 
     export let cDestinationFilter: string[];
-    export let cRoutes: TransitLandAPIClient.Route[];
+    export let cFetchedRoutes: TransitLandAPIClient.Route[];
+    export let cFetchedRoute: TransitLandAPIClient.Route;
+    export let cFetchedTrip: TransitLandAPIClient.Trip;
+    export let cCurrentPosition: GeolocationPosition;
+    export let cInitializationTime = new Date();
+    export let cSimulationStartTime = cInitializationTime;
+
+
+
+    export function CurrentTime(): Date {
+        const lNow = new Date();
+        const lElapsedTime = lNow.getTime() - cInitializationTime.getTime();
+        const lSimulatedNow = Util.DatePlusMilliSeconds(cSimulationStartTime, lElapsedTime);
+        return lSimulatedNow;
+        // return lNow
+    };
+
+
+
+    export function TransitLand() {
+        const lApiKey = cUserSettings.TransitLandAPIKey.trim();
+
+        if (lApiKey) {
+            return TransitLandAPIClient.Client(lApiKey);
+        }
+    };
 
 
 
@@ -574,6 +707,15 @@ namespace Main {
         UI.ShowPanel('DrivingPanel');
         SettingsUI.LoadSettingsFromStorage();
         SettingsUI.PopulateSettingsTable();
-        // NewTripUI.PopulateRoutesList();
+
+        const lEndTimeInput = document.getElementById('TripSearchMinutes') as HTMLInputElement;
+        lEndTimeInput.value = "10";
+
+        const lWatchID = navigator.geolocation.watchPosition(aPosition => {
+            const lCoordinate = aPosition.coords;
+            const lCoordinateSpan = document.getElementById('CoordinateSpan') as HTMLSpanElement;
+            lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()})`
+            cCurrentPosition = aPosition;
+        });
     };
 };
