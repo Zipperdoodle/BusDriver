@@ -395,6 +395,7 @@ var Main;
     function PositionWatch(aPosition) {
         const lCoordinate = aPosition.coords;
         const lCoordinateSpan = document.getElementById('CoordinateSpan');
+        Main.cPositionUpdateCounter++;
         lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${Main.cPositionUpdateCounter})`;
         Main.cCurrentPosition = aPosition;
     }

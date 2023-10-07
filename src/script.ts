@@ -707,6 +707,7 @@ namespace Main {
     export function PositionWatch(aPosition: GeolocationPosition) {
         const lCoordinate = aPosition.coords;
         const lCoordinateSpan = document.getElementById('CoordinateSpan') as HTMLSpanElement;
+        cPositionUpdateCounter++;
         lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${cPositionUpdateCounter})`;
         cCurrentPosition = aPosition;
     };
