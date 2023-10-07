@@ -18,10 +18,10 @@ So, working backwards from what we need to how we can get it:
 
 
 Main screen table headers:
+- Departure time (+/-countdown)
 - Stop name
 - Avg spd min-max
 - Adj spd min-max
 - ETA (+/-delay)
-- Departure time (+/-countdown)
 
 Table has rows for the next three stops, the next timepoint, and the last stop.

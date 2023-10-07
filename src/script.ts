@@ -1,29 +1,37 @@
 
 namespace Util {
 
-    export interface Coordinate {
+    export interface Coordinates {
         mX: number;
         mY: number;
     };
 
 
 
-    export function DistanceComparator(aOrigin: Coordinate) {
-        return (aPosition1: Coordinate, aPosition2: Coordinate): number => {
-            const lDeltaX1 = aPosition1.mX - aOrigin.mX;
-            const lDeltaY1 = aPosition1.mY - aOrigin.mY;
-            const lDeltaX2 = aPosition2.mX - aOrigin.mX;
-            const lDeltaY2 = aPosition2.mY - aOrigin.mY;
-            const lDistanceSquared1 = lDeltaX1 * lDeltaX1 + lDeltaY1 * lDeltaY1;
-            const lDistanceSquared2 = lDeltaX2 * lDeltaX2 + lDeltaY2 * lDeltaY2;
-            return lDistanceSquared1 - lDistanceSquared2;
+    export interface LocatedObject<T> extends Coordinates {
+        mObject: T;
+    };
+
+
+
+    export function Distance(aPosition1: Coordinates, aPosition2: Coordinates): number {
+        const lDeltaX1 = aPosition2.mX - aPosition1.mX;
+        const lDeltaY1 = aPosition2.mY - aPosition1.mY;
+        return Math.sqrt(lDeltaX1 * lDeltaX1 + lDeltaY1 * lDeltaY1);
+    };
+
+
+
+    export function DistanceComparator(aOrigin: Coordinates) {
+        return (aPosition1: Coordinates, aPosition2: Coordinates): number => {
+            return Distance(aOrigin, aPosition1) - Distance(aOrigin, aPosition2);
         };
     };
 
 
 
-    export function PerpendicularDistanceMapper(aPoint: Coordinate) {
-        return (aLineStart: Coordinate, aLineEnd: Coordinate) => {
+    export function PerpendicularDistanceMapper(aPoint: Coordinates) {
+        return (aLineStart: Coordinates, aLineEnd: Coordinates) => {
             const lSlope = (aLineEnd.mY - aLineStart.mY) / (aLineEnd.mX - aLineStart.mX);
             const lYIntercept = aLineStart.mY - lSlope * aLineStart.mX;
             return Math.abs(lSlope * aPoint.mX - aPoint.mY + lYIntercept) / Math.sqrt(lSlope * lSlope + 1);;
@@ -133,7 +141,7 @@ namespace TransitLandAPIClient {
     };
 
     export type MultiLine2DGeometry = {
-        coordinates: [
+        coordinates: [ // NOTE: TransitLand appears to store these as longitude / latitude (instead of v.v.)
             [
                 number,
                 number
@@ -454,7 +462,7 @@ namespace UI {
 
 
 
-    export function PopulateTable(aTableID: string, aData: Record<string, string | number>[], aHeaders: string[]): void {
+    export function PopulateTable(aTableID: string, aData: Record<string, string | number>[], aHeaders: string[], aPopulateHeaders: boolean = true): void {
         const lTable = document.getElementById(aTableID) as HTMLTableElement;
 
         if (lTable) {
@@ -462,22 +470,24 @@ namespace UI {
 
             lTable.innerHTML = '';  // Clear existing table data
 
-            // Create table header
-            const lTableHead = lTable.createTHead();
-            const lHeaderRow = lTableHead.insertRow();
-            aHeaders.forEach(aHeader => {
-                const lHeaderCell = document.createElement('th');
-                lHeaderCell.textContent = aHeader;
-                lHeaderRow.appendChild(lHeaderCell);
-            });
+            if (aPopulateHeaders) {
+                // Create table header
+                const lTableHead = lTable.createTHead();
+                const lHeaderRow = lTableHead.insertRow();
+                aHeaders.forEach(aHeader => {
+                    const lHeaderCell = document.createElement('th');
+                    lHeaderCell.textContent = aHeader;
+                    lHeaderRow.appendChild(lHeaderCell);
+                });
+            }
 
             // Create table body
             const lTableBody = lTable.createTBody();
-            aData.forEach(rowData => {
+            aData.forEach(aRowData => {
                 const lDataRow = lTableBody.insertRow();
-                aHeaders.forEach(header => {
+                aHeaders.forEach(aHeader => {
                     const lDataCell = lDataRow.insertCell();
-                    lDataCell.textContent = rowData[header].toString();
+                    lDataCell.innerHTML = aRowData[aHeader].toString();
                 });
             });
         }
@@ -557,12 +567,6 @@ namespace SettingsUI {
 
 namespace NewTripUI {
 
-    export interface LocatedObject<T> extends Util.Coordinate {
-        mObject: T;
-    };
-
-
-
     export async function FetchRoutes(): Promise<void> {
         const lTransitLand = Main.TransitLand();
         const lOperatorID = Main.cUserSettings.OperatorID.trim();
@@ -574,12 +578,10 @@ namespace NewTripUI {
                 const lFilteredRoutes = lFetchResult.mData.routes
                     .filter(aRoute => +aRoute.route_short_name > 0 && +aRoute.route_short_name < 500)
                     .filter(aRoute => Main.cDestinationFilter.some(aDestination => aRoute.route_long_name.includes(aDestination)));
-                lFilteredRoutes.sort(
-                    (aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name
-                );
-                Main.cFetchedRoutes = lFilteredRoutes;
-                const lKeyValuePairs = lFilteredRoutes.map(
-                    aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`] as [string, string]
+                lFilteredRoutes.sort((aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name);
+                DrivingUI.cFetchedRoutes = lFilteredRoutes;
+                const lKeyValuePairs = lFilteredRoutes.map(aRoute =>
+                    [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`] as [string, string]
                 );
                 UI.PopulateDropdown("RouteList", lKeyValuePairs)
             }
@@ -597,20 +599,20 @@ namespace NewTripUI {
         if (Main.cCurrentPosition && lTransitLand && lRouteIndex >= 0) {
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
             const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
-            const lRouteSubset = Main.cFetchedRoutes[lRouteIndex];
+            const lRouteSubset = DrivingUI.cFetchedRoutes[lRouteIndex];
             const lFetchResult = await lTransitLand.FetchedRoute(lRouteSubset.onestop_id);
 
             if (lFetchResult.mData?.routes) {
                 const lRoute = lFetchResult.mData?.routes[0];
-                const lBusStopLocations = lRoute.route_stops.map(
-                    aBusStop => ({ mY: aBusStop.stop.geometry.coordinates[0], mX: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop } as LocatedObject<TransitLandAPIClient.BusStopSubset>)
+                const lBusStopLocations = lRoute.route_stops.map(aBusStop =>
+                    ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop } as Util.LocatedObject<TransitLandAPIClient.BusStopSubset>)
                 );
-                lBusStopLocations.sort(Util.DistanceComparator({ mX: lCurrentLatitude, mY: lCurrentLongitude }));
-                const lKeyValuePairs = lBusStopLocations.map(
-                    aBusStopLocation => [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`] as [string, string]
+                lBusStopLocations.sort(Util.DistanceComparator({ mY: lCurrentLatitude, mX: lCurrentLongitude }));
+                const lKeyValuePairs = lBusStopLocations.map(aBusStopLocation =>
+                    [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`] as [string, string]
                 );
                 UI.PopulateDropdown("BusStopList", lKeyValuePairs)
-                Main.cFetchedRoute = lRoute;
+                DrivingUI.cFetchedRoute = lRoute;
             }
         }
         DrivingUI.Update();
@@ -623,7 +625,7 @@ namespace NewTripUI {
         const lTripIndex = lTripList.selectedIndex;
 
         if (lTripIndex >= 0) {
-            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lDeparture = DrivingUI.cFetchedDepartures[lTripIndex];
             const lTripStartTime = lDeparture.departure_time;
             const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart') as HTMLInputElement;
             lSimulatedTimeInput.value = lTripStartTime;
@@ -637,7 +639,7 @@ namespace NewTripUI {
         const lBusStopList = document.getElementById('BusStopList') as HTMLSelectElement;
         const lBusStopID = lBusStopList.value;
 
-        if (Main.cFetchedRoute && lTransitLand && lBusStopID) {
+        if (DrivingUI.cFetchedRoute && lTransitLand && lBusStopID) {
             const lDateInput = document.getElementById('TripSearchDate') as HTMLInputElement;
             const lStartTimeInput = document.getElementById('TripSearchStart') as HTMLInputElement;
             const lMinutesInput = document.getElementById('TripSearchMinutes') as HTMLInputElement;
@@ -654,11 +656,11 @@ namespace NewTripUI {
             if (lFetchResult.mData?.stops) {
                 const lDepartures = lFetchResult.mData?.stops[0].departures;
                 if (lDepartures) {
-                    const lKeyValuePairs = lDepartures.map(
-                        aDeparture => [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.route?.route_short_name}: ${aDeparture.trip.trip_headsign}`] as [string, string]
+                    const lKeyValuePairs = lDepartures.map(aDeparture =>
+                        [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.route?.route_short_name}: ${aDeparture.trip.trip_headsign}`] as [string, string]
                     );
                     UI.PopulateDropdown("TripList", lKeyValuePairs || [])
-                    Main.cFetchedDepartures = lDepartures;
+                    DrivingUI.cFetchedDepartures = lDepartures;
                     TripListChanged();
                 }
             }
@@ -712,18 +714,19 @@ namespace NewTripUI {
         const lTripIndex = lTripList.selectedIndex;
 
         if (lTransitLand && lTripIndex >= 0) {
-            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lDeparture = DrivingUI.cFetchedDepartures[lTripIndex];
             const lTripID = lDeparture.trip.id;
             const lRouteID = lDeparture.trip.route?.onestop_id;
 
-            if (lRouteID && Main.cFetchedTrip?.id != lTripID) {
+            if (lRouteID && DrivingUI.cFetchedTrip?.id != lTripID) {
                 const lFetchResult = await lTransitLand.FetchedTrip(lRouteID, lTripID.toString());
                 if (lFetchResult.mData?.trips) {
-                    Main.cFetchedTrip = lFetchResult.mData.trips[0];
+                    DrivingUI.cFetchedTrip = lFetchResult.mData.trips[0];
                 }
             }
         }
 
+        DrivingUI.StartTrip();
         CloseNewTripUI();
     };
 
@@ -756,11 +759,119 @@ namespace NewTripUI {
 
 namespace DrivingUI {
 
+    export let cFetchedRoutes: TransitLandAPIClient.Route[];
+    export let cFetchedRoute: TransitLandAPIClient.Route;
+    export let cFetchedDepartures: TransitLandAPIClient.Departure[];
+    export let cFetchedTrip: TransitLandAPIClient.Trip;
+    export let cRemainingBusStops: Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>[];
+    export let cPreviousDistanceToNextStop = 999999;
+
+
+
+    export function AdvanceToClosestStop(aCurrentGeoLocation: GeolocationCoordinates): void {
+        const lCurrentLocation = { mY: aCurrentGeoLocation.latitude, mX: aCurrentGeoLocation.longitude }
+        const lDistanceComparator = Util.DistanceComparator(lCurrentLocation);
+
+        while (cRemainingBusStops?.length > 1) {
+            const lStopCoordinates0 = cRemainingBusStops[0].mObject.stop.geometry.coordinates;
+            const lStopCoordinates1 = cRemainingBusStops[1].mObject.stop.geometry.coordinates;
+            const lStopLocation0: Util.Coordinates = { mX: lStopCoordinates0[0], mY: lStopCoordinates0[1] };
+            const lStopLocation1: Util.Coordinates = { mX: lStopCoordinates1[0], mY: lStopCoordinates1[1] };
+            const lDeltaDistance = lDistanceComparator(lStopLocation0, lStopLocation1);
+
+            if (lDeltaDistance > 0) {
+                const lByeStop = cRemainingBusStops.shift();
+                const lCurrentLocationString = JSON.stringify(lCurrentLocation);
+                const lStopLocation0String = JSON.stringify(lStopLocation0);
+                const lStopLocation1String = JSON.stringify(lStopLocation1);
+                console.log(`${lByeStop?.mObject.stop.stop_name}: ${lCurrentLocationString} - ${lStopLocation0String} = ${Util.Distance(lCurrentLocation, lStopLocation0)}`);
+                console.log(`   ${cRemainingBusStops[0].mObject.stop.stop_name}: ${lCurrentLocationString} - ${lStopLocation1String} = ${Util.Distance(lCurrentLocation, lStopLocation1)}`);
+            } else {
+                break;
+            }
+        }
+    };
+
+
+
+    export function StartTrip(): void {
+        if (cFetchedTrip) {
+            cRemainingBusStops = cFetchedTrip.stop_times.map(aBusStop =>
+                ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop } as Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>)
+            );
+        }
+        AdvanceToClosestStop(Main.cCurrentPosition.coords);
+    };
+
+
+
     export function Update() {
         const lCurrentTime = Main.CurrentTime();
-        const lBusNumber = Main.cFetchedRoute?.route_short_name || "999";
-        const lTripHeadsign = Main.cFetchedTrip?.trip_headsign || "No Service";
+        const lBusNumber = cFetchedRoute?.route_short_name || "999";
+        const lTripHeadsign = cFetchedTrip?.trip_headsign || "No Service";
         Main.SetHeadsign("BusHeadsign", lBusNumber, lTripHeadsign, lCurrentTime);
+
+        if (cFetchedTrip) {
+            const lLocation = Main.cCurrentPosition.coords;
+            const lCoordinates: Util.Coordinates = { mY: lLocation.latitude, mX: lLocation.longitude };
+            const lLocationTime = new Date(Main.cCurrentPosition.timestamp);
+            const lTrip = cFetchedTrip;
+
+            // If distance to bus stop is increasing, assume that we've passed it.
+            let lDistanceToNextStop = Util.Distance(lCoordinates, cRemainingBusStops[0]);
+            if (lDistanceToNextStop > cPreviousDistanceToNextStop) {
+                if (cRemainingBusStops.length > 1) { // Don't remove the final stop.
+                    cRemainingBusStops.shift();
+                }
+                lDistanceToNextStop = Util.Distance(lCoordinates, cRemainingBusStops[0]);
+            }
+
+            // Isolate all stops that will appear on Driving UI.
+            const lRelevantStops = [cRemainingBusStops[0]];
+            if (cRemainingBusStops.length > 1) lRelevantStops.push(cRemainingBusStops[1]);
+            if (cRemainingBusStops.length > 2) lRelevantStops.push(cRemainingBusStops[2]);
+            if (cRemainingBusStops.length > 3) {
+                // Add the next timepoint.
+                let lIndex = 3;
+                while (lIndex < cRemainingBusStops.length) {
+                    if (cRemainingBusStops[lIndex].mObject.timepoint === 1) {
+                        lRelevantStops.push(cRemainingBusStops[lIndex]);
+                        break;
+                    }
+                    lIndex++;
+                }
+                // Add the final stop.
+                lRelevantStops.push(cRemainingBusStops[cRemainingBusStops.length - 1]);
+            };
+
+            // Generate the bus stops table.
+            const lTableHeaders = ["Time", "T", "Name", "AvgSpeed", "AdjSpeed", "ETA"];
+            // const lTableValues: Record<string, string>[] = [];
+            let lCountdown = 0; // MM:SS
+            let lAvgSpeedMin = 15; // Average Km/h at max allowed delay
+            let lAvgSpeedMax = 85; // Average Km/h at max allowed lead time
+            let lAdjSpeedMin = 20; // Average min speed adjusted for historic recorded speeds/delays on trip/route
+            let lAdjSpeedMax = 80; // Average max speed adjusted for historic recorded speeds/delays on trip/route
+            let lDeltaETA = 0; // MM:SS
+            let lDelay = 0; // MM:SS
+            const lUpcomingStopsTableValues = lRelevantStops.map(aBusStop => ({
+                Time: `${aBusStop.mObject.departure_time} (${lCountdown})`,
+                T: aBusStop.mObject.timepoint > 0 ? "T" : "",
+                Name: aBusStop.mObject.stop.stop_name,
+                AvgSpeed: `${lAvgSpeedMin} - ${lAvgSpeedMax}`,
+                AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,
+                ETA: `${lDeltaETA} (${lDelay})`,
+            }));
+
+            // const lFinalDestinationSpacerRow = { Time: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+            // const lTimepointSpacerRow = { Time: "<span class='small-ui'>Next Timepoint:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+            // const lTimepointAbsentRow = { Time: "", T: "", Name: "", AvgSpeed: "", AdjSpeed: "", ETA: "" };
+            const lSpacerRow = { Time: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+            lUpcomingStopsTableValues.splice(3, 0, lSpacerRow);
+            UI.PopulateTable("UpcomingStopsTable", lUpcomingStopsTableValues, lTableHeaders, true);
+
+            cPreviousDistanceToNextStop = lDistanceToNextStop;
+        }
     };
 };
 
@@ -776,10 +887,6 @@ namespace Main {
     };
 
     export let cDestinationFilter: string[];
-    export let cFetchedRoutes: TransitLandAPIClient.Route[];
-    export let cFetchedRoute: TransitLandAPIClient.Route;
-    export let cFetchedDepartures: TransitLandAPIClient.Departure[];
-    export let cFetchedTrip: TransitLandAPIClient.Trip;
     export let cCurrentPosition: GeolocationPosition;
     export let cRealStartTime = new Date();
     export let cSimulatedStartTime = cRealStartTime;
@@ -815,7 +922,7 @@ namespace Main {
 
     export function SetHeadsign(aElementID: string, aBusNumber: string, aTripHeadsign: string, aCurrentTime: Date): void {
         const lBusHeadsignField = document.getElementById(aElementID) as HTMLParagraphElement;
-        lBusHeadsignField.textContent = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+        lBusHeadsignField.innerHTML = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
     };
 
 

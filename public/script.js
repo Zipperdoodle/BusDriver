@@ -2,15 +2,17 @@
 var Util;
 (function (Util) {
     ;
+    ;
+    function Distance(aPosition1, aPosition2) {
+        const lDeltaX1 = aPosition2.mX - aPosition1.mX;
+        const lDeltaY1 = aPosition2.mY - aPosition1.mY;
+        return Math.sqrt(lDeltaX1 * lDeltaX1 + lDeltaY1 * lDeltaY1);
+    }
+    Util.Distance = Distance;
+    ;
     function DistanceComparator(aOrigin) {
         return (aPosition1, aPosition2) => {
-            const lDeltaX1 = aPosition1.mX - aOrigin.mX;
-            const lDeltaY1 = aPosition1.mY - aOrigin.mY;
-            const lDeltaX2 = aPosition2.mX - aOrigin.mX;
-            const lDeltaY2 = aPosition2.mY - aOrigin.mY;
-            const lDistanceSquared1 = lDeltaX1 * lDeltaX1 + lDeltaY1 * lDeltaY1;
-            const lDistanceSquared2 = lDeltaX2 * lDeltaX2 + lDeltaY2 * lDeltaY2;
-            return lDistanceSquared1 - lDistanceSquared2;
+            return Distance(aOrigin, aPosition1) - Distance(aOrigin, aPosition2);
         };
     }
     Util.DistanceComparator = DistanceComparator;
@@ -189,26 +191,28 @@ var UI;
         }
     }
     UI.PopulateDropdown = PopulateDropdown;
-    function PopulateTable(aTableID, aData, aHeaders) {
+    function PopulateTable(aTableID, aData, aHeaders, aPopulateHeaders = true) {
         const lTable = document.getElementById(aTableID);
         if (lTable) {
             //!@#TODO: Runtime check that lTable is indeed a table element
             lTable.innerHTML = ''; // Clear existing table data
-            // Create table header
-            const lTableHead = lTable.createTHead();
-            const lHeaderRow = lTableHead.insertRow();
-            aHeaders.forEach(aHeader => {
-                const lHeaderCell = document.createElement('th');
-                lHeaderCell.textContent = aHeader;
-                lHeaderRow.appendChild(lHeaderCell);
-            });
+            if (aPopulateHeaders) {
+                // Create table header
+                const lTableHead = lTable.createTHead();
+                const lHeaderRow = lTableHead.insertRow();
+                aHeaders.forEach(aHeader => {
+                    const lHeaderCell = document.createElement('th');
+                    lHeaderCell.textContent = aHeader;
+                    lHeaderRow.appendChild(lHeaderCell);
+                });
+            }
             // Create table body
             const lTableBody = lTable.createTBody();
-            aData.forEach(rowData => {
+            aData.forEach(aRowData => {
                 const lDataRow = lTableBody.insertRow();
-                aHeaders.forEach(header => {
+                aHeaders.forEach(aHeader => {
                     const lDataCell = lDataRow.insertCell();
-                    lDataCell.textContent = rowData[header].toString();
+                    lDataCell.innerHTML = aRowData[aHeader].toString();
                 });
             });
         }
@@ -280,7 +284,6 @@ var SettingsUI;
 ;
 var NewTripUI;
 (function (NewTripUI) {
-    ;
     async function FetchRoutes() {
         var _a;
         const lTransitLand = Main.TransitLand();
@@ -292,7 +295,7 @@ var NewTripUI;
                     .filter(aRoute => +aRoute.route_short_name > 0 && +aRoute.route_short_name < 500)
                     .filter(aRoute => Main.cDestinationFilter.some(aDestination => aRoute.route_long_name.includes(aDestination)));
                 lFilteredRoutes.sort((aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name);
-                Main.cFetchedRoutes = lFilteredRoutes;
+                DrivingUI.cFetchedRoutes = lFilteredRoutes;
                 const lKeyValuePairs = lFilteredRoutes.map(aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`]);
                 UI.PopulateDropdown("RouteList", lKeyValuePairs);
             }
@@ -309,15 +312,15 @@ var NewTripUI;
         if (Main.cCurrentPosition && lTransitLand && lRouteIndex >= 0) {
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
             const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
-            const lRouteSubset = Main.cFetchedRoutes[lRouteIndex];
+            const lRouteSubset = DrivingUI.cFetchedRoutes[lRouteIndex];
             const lFetchResult = await lTransitLand.FetchedRoute(lRouteSubset.onestop_id);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
                 const lRoute = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.routes[0];
-                const lBusStopLocations = lRoute.route_stops.map(aBusStop => ({ mY: aBusStop.stop.geometry.coordinates[0], mX: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop }));
-                lBusStopLocations.sort(Util.DistanceComparator({ mX: lCurrentLatitude, mY: lCurrentLongitude }));
+                const lBusStopLocations = lRoute.route_stops.map(aBusStop => ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop }));
+                lBusStopLocations.sort(Util.DistanceComparator({ mY: lCurrentLatitude, mX: lCurrentLongitude }));
                 const lKeyValuePairs = lBusStopLocations.map(aBusStopLocation => [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`]);
                 UI.PopulateDropdown("BusStopList", lKeyValuePairs);
-                Main.cFetchedRoute = lRoute;
+                DrivingUI.cFetchedRoute = lRoute;
             }
         }
         DrivingUI.Update();
@@ -328,7 +331,7 @@ var NewTripUI;
         const lTripList = document.getElementById('TripList');
         const lTripIndex = lTripList.selectedIndex;
         if (lTripIndex >= 0) {
-            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lDeparture = DrivingUI.cFetchedDepartures[lTripIndex];
             const lTripStartTime = lDeparture.departure_time;
             const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart');
             lSimulatedTimeInput.value = lTripStartTime;
@@ -341,7 +344,7 @@ var NewTripUI;
         const lTransitLand = Main.TransitLand();
         const lBusStopList = document.getElementById('BusStopList');
         const lBusStopID = lBusStopList.value;
-        if (Main.cFetchedRoute && lTransitLand && lBusStopID) {
+        if (DrivingUI.cFetchedRoute && lTransitLand && lBusStopID) {
             const lDateInput = document.getElementById('TripSearchDate');
             const lStartTimeInput = document.getElementById('TripSearchStart');
             const lMinutesInput = document.getElementById('TripSearchMinutes');
@@ -359,7 +362,7 @@ var NewTripUI;
                 if (lDepartures) {
                     const lKeyValuePairs = lDepartures.map(aDeparture => { var _a; return [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${(_a = aDeparture.trip.route) === null || _a === void 0 ? void 0 : _a.route_short_name}: ${aDeparture.trip.trip_headsign}`]; });
                     UI.PopulateDropdown("TripList", lKeyValuePairs || []);
-                    Main.cFetchedDepartures = lDepartures;
+                    DrivingUI.cFetchedDepartures = lDepartures;
                     TripListChanged();
                 }
             }
@@ -407,16 +410,17 @@ var NewTripUI;
         const lTripList = document.getElementById('TripList');
         const lTripIndex = lTripList.selectedIndex;
         if (lTransitLand && lTripIndex >= 0) {
-            const lDeparture = Main.cFetchedDepartures[lTripIndex];
+            const lDeparture = DrivingUI.cFetchedDepartures[lTripIndex];
             const lTripID = lDeparture.trip.id;
             const lRouteID = (_a = lDeparture.trip.route) === null || _a === void 0 ? void 0 : _a.onestop_id;
-            if (lRouteID && ((_b = Main.cFetchedTrip) === null || _b === void 0 ? void 0 : _b.id) != lTripID) {
+            if (lRouteID && ((_b = DrivingUI.cFetchedTrip) === null || _b === void 0 ? void 0 : _b.id) != lTripID) {
                 const lFetchResult = await lTransitLand.FetchedTrip(lRouteID, lTripID.toString());
                 if ((_c = lFetchResult.mData) === null || _c === void 0 ? void 0 : _c.trips) {
-                    Main.cFetchedTrip = lFetchResult.mData.trips[0];
+                    DrivingUI.cFetchedTrip = lFetchResult.mData.trips[0];
                 }
             }
         }
+        DrivingUI.StartTrip();
         CloseNewTripUI();
     }
     NewTripUI.ButtonStartNewTrip = ButtonStartNewTrip;
@@ -446,12 +450,103 @@ var NewTripUI;
 ;
 var DrivingUI;
 (function (DrivingUI) {
+    DrivingUI.cPreviousDistanceToNextStop = 999999;
+    function AdvanceToClosestStop(aCurrentGeoLocation) {
+        const lCurrentLocation = { mY: aCurrentGeoLocation.latitude, mX: aCurrentGeoLocation.longitude };
+        const lDistanceComparator = Util.DistanceComparator(lCurrentLocation);
+        while ((DrivingUI.cRemainingBusStops === null || DrivingUI.cRemainingBusStops === void 0 ? void 0 : DrivingUI.cRemainingBusStops.length) > 1) {
+            const lStopCoordinates0 = DrivingUI.cRemainingBusStops[0].mObject.stop.geometry.coordinates;
+            const lStopCoordinates1 = DrivingUI.cRemainingBusStops[1].mObject.stop.geometry.coordinates;
+            const lStopLocation0 = { mX: lStopCoordinates0[0], mY: lStopCoordinates0[1] };
+            const lStopLocation1 = { mX: lStopCoordinates1[0], mY: lStopCoordinates1[1] };
+            const lDeltaDistance = lDistanceComparator(lStopLocation0, lStopLocation1);
+            if (lDeltaDistance > 0) {
+                const lByeStop = DrivingUI.cRemainingBusStops.shift();
+                const lCurrentLocationString = JSON.stringify(lCurrentLocation);
+                const lStopLocation0String = JSON.stringify(lStopLocation0);
+                const lStopLocation1String = JSON.stringify(lStopLocation1);
+                console.log(`${lByeStop === null || lByeStop === void 0 ? void 0 : lByeStop.mObject.stop.stop_name}: ${lCurrentLocationString} - ${lStopLocation0String} = ${Util.Distance(lCurrentLocation, lStopLocation0)}`);
+                console.log(`   ${DrivingUI.cRemainingBusStops[0].mObject.stop.stop_name}: ${lCurrentLocationString} - ${lStopLocation1String} = ${Util.Distance(lCurrentLocation, lStopLocation1)}`);
+            }
+            else {
+                break;
+            }
+        }
+    }
+    DrivingUI.AdvanceToClosestStop = AdvanceToClosestStop;
+    ;
+    function StartTrip() {
+        if (DrivingUI.cFetchedTrip) {
+            DrivingUI.cRemainingBusStops = DrivingUI.cFetchedTrip.stop_times.map(aBusStop => ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop }));
+        }
+        AdvanceToClosestStop(Main.cCurrentPosition.coords);
+    }
+    DrivingUI.StartTrip = StartTrip;
+    ;
     function Update() {
-        var _a, _b;
         const lCurrentTime = Main.CurrentTime();
-        const lBusNumber = ((_a = Main.cFetchedRoute) === null || _a === void 0 ? void 0 : _a.route_short_name) || "999";
-        const lTripHeadsign = ((_b = Main.cFetchedTrip) === null || _b === void 0 ? void 0 : _b.trip_headsign) || "No Service";
+        const lBusNumber = (DrivingUI.cFetchedRoute === null || DrivingUI.cFetchedRoute === void 0 ? void 0 : DrivingUI.cFetchedRoute.route_short_name) || "999";
+        const lTripHeadsign = (DrivingUI.cFetchedTrip === null || DrivingUI.cFetchedTrip === void 0 ? void 0 : DrivingUI.cFetchedTrip.trip_headsign) || "No Service";
         Main.SetHeadsign("BusHeadsign", lBusNumber, lTripHeadsign, lCurrentTime);
+        if (DrivingUI.cFetchedTrip) {
+            const lLocation = Main.cCurrentPosition.coords;
+            const lCoordinates = { mY: lLocation.latitude, mX: lLocation.longitude };
+            const lLocationTime = new Date(Main.cCurrentPosition.timestamp);
+            const lTrip = DrivingUI.cFetchedTrip;
+            // If distance to bus stop is increasing, assume that we've passed it.
+            let lDistanceToNextStop = Util.Distance(lCoordinates, DrivingUI.cRemainingBusStops[0]);
+            if (lDistanceToNextStop > DrivingUI.cPreviousDistanceToNextStop) {
+                if (DrivingUI.cRemainingBusStops.length > 1) { // Don't remove the final stop.
+                    DrivingUI.cRemainingBusStops.shift();
+                }
+                lDistanceToNextStop = Util.Distance(lCoordinates, DrivingUI.cRemainingBusStops[0]);
+            }
+            // Isolate all stops that will appear on Driving UI.
+            const lRelevantStops = [DrivingUI.cRemainingBusStops[0]];
+            if (DrivingUI.cRemainingBusStops.length > 1)
+                lRelevantStops.push(DrivingUI.cRemainingBusStops[1]);
+            if (DrivingUI.cRemainingBusStops.length > 2)
+                lRelevantStops.push(DrivingUI.cRemainingBusStops[2]);
+            if (DrivingUI.cRemainingBusStops.length > 3) {
+                // Add the next timepoint.
+                let lIndex = 3;
+                while (lIndex < DrivingUI.cRemainingBusStops.length) {
+                    if (DrivingUI.cRemainingBusStops[lIndex].mObject.timepoint === 1) {
+                        lRelevantStops.push(DrivingUI.cRemainingBusStops[lIndex]);
+                        break;
+                    }
+                    lIndex++;
+                }
+                // Add the final stop.
+                lRelevantStops.push(DrivingUI.cRemainingBusStops[DrivingUI.cRemainingBusStops.length - 1]);
+            }
+            ;
+            // Generate the bus stops table.
+            const lTableHeaders = ["Time", "T", "Name", "AvgSpeed", "AdjSpeed", "ETA"];
+            // const lTableValues: Record<string, string>[] = [];
+            let lCountdown = 0; // MM:SS
+            let lAvgSpeedMin = 15; // Average Km/h at max allowed delay
+            let lAvgSpeedMax = 85; // Average Km/h at max allowed lead time
+            let lAdjSpeedMin = 20; // Average min speed adjusted for historic recorded speeds/delays on trip/route
+            let lAdjSpeedMax = 80; // Average max speed adjusted for historic recorded speeds/delays on trip/route
+            let lDeltaETA = 0; // MM:SS
+            let lDelay = 0; // MM:SS
+            const lUpcomingStopsTableValues = lRelevantStops.map(aBusStop => ({
+                Time: `${aBusStop.mObject.departure_time} (${lCountdown})`,
+                T: aBusStop.mObject.timepoint > 0 ? "T" : "",
+                Name: aBusStop.mObject.stop.stop_name,
+                AvgSpeed: `${lAvgSpeedMin} - ${lAvgSpeedMax}`,
+                AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,
+                ETA: `${lDeltaETA} (${lDelay})`,
+            }));
+            // const lFinalDestinationSpacerRow = { Time: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+            // const lTimepointSpacerRow = { Time: "<span class='small-ui'>Next Timepoint:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+            // const lTimepointAbsentRow = { Time: "", T: "", Name: "", AvgSpeed: "", AdjSpeed: "", ETA: "" };
+            const lSpacerRow = { Time: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+            lUpcomingStopsTableValues.splice(3, 0, lSpacerRow);
+            UI.PopulateTable("UpcomingStopsTable", lUpcomingStopsTableValues, lTableHeaders, true);
+            DrivingUI.cPreviousDistanceToNextStop = lDistanceToNextStop;
+        }
     }
     DrivingUI.Update = Update;
     ;
@@ -492,7 +587,7 @@ var Main;
     ;
     function SetHeadsign(aElementID, aBusNumber, aTripHeadsign, aCurrentTime) {
         const lBusHeadsignField = document.getElementById(aElementID);
-        lBusHeadsignField.textContent = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+        lBusHeadsignField.innerHTML = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
     }
     Main.SetHeadsign = SetHeadsign;
     ;
