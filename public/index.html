@@ -42,19 +42,19 @@
         <div class="large-container">
             <table>
                 <tr>
-                    <td><button onclick="NewTripUI.FetchRoutes()">Fetch</button></td>
+                    <td><button onclick="NewTripUI.FetchRoutes()">Fetch (TODO: Cache results)</button></td>
                     <td><label for="RoutesList">Route</label></td>
                     <td><select id="RoutesList"></select></td>
                 </tr>
                 <tr>
-                    <td><button onclick="NewTripUI.FetchBusStops()">Fetch</button></td>
+                    <td><button onclick="NewTripUI.FetchBusStops()">Fetch (TODO: Cache results)</button></td>
                     <td><label for="BusStopsList">Bus Stop</label></td>
                     <td><select id="BusStopsList"></select></td>
                 </tr>
                 <tr>
-                    <td><label for="TripSearchDate">Service Date</label><input type="date" id="TripSearchDate"></td>
-                    <td><label for="TripSearchStart">Start Time</label><input type="time" id="TripSearchStart"></td>
-                    <td><label for="TripSearchMinutes">End Time</label><input type="number" id="TripSearchMinutes"></td>
+                    <td><label for="TripSearchDate">Service Date: </label><input type="date" id="TripSearchDate"></td>
+                    <td><label for="TripSearchStart">Start Time: </label><input type="time" id="TripSearchStart"></td>
+                    <td><label for="TripSearchMinutes">Minutes: </label><input type="number" id="TripSearchMinutes"></td>
                 </tr>
                 <tr>
                     <td><button onclick="NewTripUI.FetchTrips()">Fetch</button></td>

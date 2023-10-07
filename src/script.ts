@@ -585,7 +585,6 @@ namespace NewTripUI {
 
             if (lFetchResult.mData?.routes) {
                 const lRoute = lFetchResult.mData?.routes[0];
-                //!@#TODO: Sort the route_stops by distance from the current geolocation...
                 const lBusStopLocations = lRoute.route_stops.map(
                     aBusStop => ({ mY: aBusStop.stop.geometry.coordinates[0], mX: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop } as LocatedObject<TransitLandAPIClient.BusStopSubset>)
                 );
@@ -623,7 +622,7 @@ namespace NewTripUI {
             if (lFetchResult.mData?.stops) {
                 const lDepartures = lFetchResult.mData?.stops[0].departures;
                 const lKeyValuePairs = lDepartures?.map(
-                    aDeparture => [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.trip_headsign}`] as [string, string]
+                    aDeparture => [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.route?.route_short_name}: ${aDeparture.trip.trip_headsign}`] as [string, string]
                 );
                 UI.PopulateDropdown("TripsList", lKeyValuePairs || [])
             }
@@ -670,7 +669,7 @@ namespace Main {
         TransitLandAPIKey: '',
         OperatorID: '',
         BusStopDelaySeconds: '30',
-        DestinationFilter: 'Utrecht, Woerden, Mijdrecht',
+        DestinationFilter: '', // Comma-separated list of partial headsign matches.
     };
 
     export let cDestinationFilter: string[];
@@ -720,7 +719,7 @@ namespace Main {
         SettingsUI.PopulateSettingsTable();
 
         const lEndTimeInput = document.getElementById('TripSearchMinutes') as HTMLInputElement;
-        lEndTimeInput.value = "10";
+        lEndTimeInput.value = "60";
 
         const lWatchID = navigator.geolocation.watchPosition(PositionWatch);
     };

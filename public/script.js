@@ -298,7 +298,6 @@ var NewTripUI;
             const lFetchResult = await lTransitLand.FetchedRoute(lRouteSubset.onestop_id);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
                 const lRoute = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.routes[0];
-                //!@#TODO: Sort the route_stops by distance from the current geolocation...
                 const lBusStopLocations = lRoute.route_stops.map(aBusStop => ({ mY: aBusStop.stop.geometry.coordinates[0], mX: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop }));
                 lBusStopLocations.sort(Util.DistanceComparator({ mX: lCurrentLatitude, mY: lCurrentLongitude }));
                 const lKeyValuePairs = lBusStopLocations.map(aBusStopLocation => [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`]);
@@ -329,7 +328,7 @@ var NewTripUI;
             const lFetchResult = await lTransitLand.FetchedDepartures(lBusStopID, lQueryParams);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.stops) {
                 const lDepartures = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.stops[0].departures;
-                const lKeyValuePairs = lDepartures === null || lDepartures === void 0 ? void 0 : lDepartures.map(aDeparture => [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${aDeparture.trip.trip_headsign}`]);
+                const lKeyValuePairs = lDepartures === null || lDepartures === void 0 ? void 0 : lDepartures.map(aDeparture => { var _a; return [aDeparture.trip.id.toString(), `[${aDeparture.departure_time}] ${(_a = aDeparture.trip.route) === null || _a === void 0 ? void 0 : _a.route_short_name}: ${aDeparture.trip.trip_headsign}`]; });
                 UI.PopulateDropdown("TripsList", lKeyValuePairs || []);
             }
         }
@@ -370,7 +369,7 @@ var Main;
         TransitLandAPIKey: '',
         OperatorID: '',
         BusStopDelaySeconds: '30',
-        DestinationFilter: 'Utrecht, Woerden, Mijdrecht',
+        DestinationFilter: '', // Comma-separated list of partial headsign matches.
     };
     Main.cInitializationTime = new Date();
     Main.cSimulationStartTime = Main.cInitializationTime;
@@ -406,7 +405,7 @@ var Main;
         SettingsUI.LoadSettingsFromStorage();
         SettingsUI.PopulateSettingsTable();
         const lEndTimeInput = document.getElementById('TripSearchMinutes');
-        lEndTimeInput.value = "10";
+        lEndTimeInput.value = "60";
         const lWatchID = navigator.geolocation.watchPosition(PositionWatch);
     };
 })(Main || (Main = {}));
