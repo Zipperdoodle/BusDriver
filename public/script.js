@@ -26,6 +26,23 @@ var Util;
         };
     }
     Util.PerpendicularDistanceMapper = PerpendicularDistanceMapper;
+    function _DeltaDate(aDate1, aDate2) {
+        return new Date(aDate2.getTime() - aDate1.getTime());
+    }
+    ;
+    function DeltaTimeString(aDate1, aDate2) {
+        const lDeltaMilliseconds = aDate2.getTime() - aDate1.getTime();
+        const lAbsDeltaMilliseconds = Math.abs(lDeltaMilliseconds);
+        const lHours = Math.floor(lAbsDeltaMilliseconds / (1000 * 60 * 60));
+        const lMinutes = Math.floor((lAbsDeltaMilliseconds % (1000 * 60 * 60)) / (1000 * 60));
+        const lSeconds = Math.floor((lAbsDeltaMilliseconds % (1000 * 60)) / 1000);
+        const lFormattedHours = lHours.toString().padStart(2, '0');
+        const lFormattedMinutes = lMinutes.toString().padStart(2, '0');
+        const lFormattedSeconds = lSeconds.toString().padStart(2, '0');
+        const lSign = lDeltaMilliseconds < 0 ? '-' : '+';
+        return `${lSign}${lFormattedHours}:${lFormattedMinutes}:${lFormattedSeconds}`;
+    }
+    Util.DeltaTimeString = DeltaTimeString;
     function DatePlusMilliSeconds(aDate, aMilliSeconds) {
         return new Date(aDate.getTime() + aMilliSeconds);
     }
@@ -228,8 +245,7 @@ var SettingsUI;
         if (lStoredSettings) {
             Object.assign(Main.cUserSettings, JSON.parse(lStoredSettings));
         }
-        Main.cDestinationFilter = Main.cUserSettings.DestinationFilter.split(',').map(aDestination => aDestination.trim());
-        // console.log(JSON.stringify(Main.cDestinationFilter));
+        Main.ProcessUserSettings();
     }
     SettingsUI.LoadSettingsFromStorage = LoadSettingsFromStorage;
     ;
@@ -269,6 +285,7 @@ var SettingsUI;
                 Main.cUserSettings[lKey] = lValue;
             }
         });
+        Main.ProcessUserSettings();
         localStorage.setItem('UserSettings', JSON.stringify(Main.cUserSettings));
         CloseSettingsUI();
     }
@@ -284,6 +301,25 @@ var SettingsUI;
 ;
 var NewTripUI;
 (function (NewTripUI) {
+    function PopulateRoutes() {
+        const lOperatorID = Main.cUserSettings.OperatorID.trim();
+        if (lOperatorID.length > 0) {
+            const lRoutesJSON = localStorage.getItem(`RouteList_${lOperatorID}`);
+            if (lRoutesJSON) {
+                const lRoutes = JSON.parse(lRoutesJSON);
+                const lFilteredRoutes = lRoutes
+                    .filter(aRoute => +aRoute.route_short_name > 0 && +aRoute.route_short_name < 500)
+                    .filter(aRoute => Main.cDestinationFilter.some(aDestination => aRoute.route_long_name.includes(aDestination)));
+                lFilteredRoutes.sort((aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name);
+                DrivingUI.cFetchedRoutes = lFilteredRoutes;
+                const lKeyValuePairs = lFilteredRoutes.map(aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`]);
+                UI.PopulateDropdown("RouteList", lKeyValuePairs);
+                DrivingUI.Update();
+            }
+        }
+    }
+    NewTripUI.PopulateRoutes = PopulateRoutes;
+    ;
     async function FetchRoutes() {
         var _a;
         const lTransitLand = Main.TransitLand();
@@ -291,16 +327,10 @@ var NewTripUI;
         if (lTransitLand && lOperatorID.length > 0) {
             const lFetchResult = await lTransitLand.FetchedRoutes(lOperatorID);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
-                const lFilteredRoutes = lFetchResult.mData.routes
-                    .filter(aRoute => +aRoute.route_short_name > 0 && +aRoute.route_short_name < 500)
-                    .filter(aRoute => Main.cDestinationFilter.some(aDestination => aRoute.route_long_name.includes(aDestination)));
-                lFilteredRoutes.sort((aRoute1, aRoute2) => +aRoute1.route_short_name - +aRoute2.route_short_name);
-                DrivingUI.cFetchedRoutes = lFilteredRoutes;
-                const lKeyValuePairs = lFilteredRoutes.map(aRoute => [aRoute.onestop_id, `${aRoute.route_short_name}: ${aRoute.route_long_name}`]);
-                UI.PopulateDropdown("RouteList", lKeyValuePairs);
+                localStorage.setItem(`RouteList_${lOperatorID}`, JSON.stringify(lFetchResult.mData.routes));
+                PopulateRoutes();
             }
         }
-        DrivingUI.Update();
     }
     NewTripUI.FetchRoutes = FetchRoutes;
     ;
@@ -391,6 +421,7 @@ var NewTripUI;
         lDateInput.value = lDateString;
         lStartTimeInput.value = lTimeString;
         lSimulatedTimeInput.value = lTimeString;
+        PopulateRoutes();
         UI.HidePanel('DrivingPanel');
         UI.ShowPanel('NewTripPanel');
         DrivingUI.Update();
@@ -483,6 +514,75 @@ var DrivingUI;
     }
     DrivingUI.StartTrip = StartTrip;
     ;
+    function CheckNextStop(aCurrentCoordinates) {
+        let lDistanceToNextStop = Util.Distance(aCurrentCoordinates, DrivingUI.cRemainingBusStops[0]);
+        // If distance to bus stop is increasing, assume that we've passed it.
+        if (lDistanceToNextStop > DrivingUI.cPreviousDistanceToNextStop) {
+            if (DrivingUI.cRemainingBusStops.length > 1) { // Don't remove the final stop.
+                DrivingUI.cRemainingBusStops.shift();
+            }
+            lDistanceToNextStop = Util.Distance(aCurrentCoordinates, DrivingUI.cRemainingBusStops[0]);
+        }
+        return lDistanceToNextStop;
+    }
+    DrivingUI.CheckNextStop = CheckNextStop;
+    ;
+    function RelevantBusStops() {
+        // Isolate all stops that will appear on Driving UI.
+        const lRelevantBusStops = [DrivingUI.cRemainingBusStops[0]];
+        if (DrivingUI.cRemainingBusStops.length > 1)
+            lRelevantBusStops.push(DrivingUI.cRemainingBusStops[1]);
+        if (DrivingUI.cRemainingBusStops.length > 2)
+            lRelevantBusStops.push(DrivingUI.cRemainingBusStops[2]);
+        if (DrivingUI.cRemainingBusStops.length > 3) {
+            // Add the next timepoint.
+            let lIndex = 3;
+            while (lIndex < DrivingUI.cRemainingBusStops.length) {
+                if (DrivingUI.cRemainingBusStops[lIndex].mObject.timepoint === 1) {
+                    lRelevantBusStops.push(DrivingUI.cRemainingBusStops[lIndex]);
+                    break;
+                }
+                lIndex++;
+            }
+            // Add the final stop.
+            lRelevantBusStops.push(DrivingUI.cRemainingBusStops[DrivingUI.cRemainingBusStops.length - 1]);
+        }
+        ;
+        return lRelevantBusStops;
+    }
+    DrivingUI.RelevantBusStops = RelevantBusStops;
+    ;
+    function UpcomingStopsTableValues(aCurrentTime, aRelevantBusStops) {
+        const lDateString = Util.DateString(aCurrentTime);
+        const lUpcomingStopsTableValues = aRelevantBusStops.map(aBusStop => {
+            const lDepartureTimeString = aBusStop.mObject.departure_time;
+            const lDepartureTime = Util.DateFromStrings(lDateString, lDepartureTimeString);
+            const lTimeDifferenceString = Util.DeltaTimeString(lDepartureTime, aCurrentTime);
+            const lCountdown = lTimeDifferenceString; // HH:MM:SS
+            const lAvgSpeedMin = 15; // Average Km/h at max allowed delay
+            const lAvgSpeedMax = 85; // Average Km/h at max allowed lead time
+            const lAdjSpeedMin = 20; // Average min speed adjusted for historic recorded speeds/delays on trip/route
+            const lAdjSpeedMax = 80; // Average max speed adjusted for historic recorded speeds/delays on trip/route
+            const lDeltaETA = 0; // MM:SS
+            const lDelay = 0; // MM:SS
+            return {
+                Time: `${aBusStop.mObject.departure_time} (${lCountdown})`,
+                T: aBusStop.mObject.timepoint > 0 ? "T" : "",
+                Name: aBusStop.mObject.stop.stop_name,
+                AvgSpeed: `${lAvgSpeedMin} - ${lAvgSpeedMax}`,
+                AdjSpeed: "---",
+                ETA: `${lDeltaETA} (${lDelay})`,
+            };
+        });
+        // const lFinalDestinationSpacerRow = { Time: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+        // const lTimepointSpacerRow = { Time: "<span class='small-ui'>Next Timepoint:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+        // const lTimepointAbsentRow = { Time: "", T: "", Name: "", AvgSpeed: "", AdjSpeed: "", ETA: "" };
+        const lSpacerRow = { Time: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+        lUpcomingStopsTableValues.splice(3, 0, lSpacerRow);
+        return lUpcomingStopsTableValues;
+    }
+    DrivingUI.UpcomingStopsTableValues = UpcomingStopsTableValues;
+    ;
     function Update() {
         const lCurrentTime = Main.CurrentTime();
         const lBusNumber = (DrivingUI.cFetchedRoute === null || DrivingUI.cFetchedRoute === void 0 ? void 0 : DrivingUI.cFetchedRoute.route_short_name) || "999";
@@ -493,57 +593,11 @@ var DrivingUI;
             const lCoordinates = { mY: lLocation.latitude, mX: lLocation.longitude };
             const lLocationTime = new Date(Main.cCurrentPosition.timestamp);
             const lTrip = DrivingUI.cFetchedTrip;
-            // If distance to bus stop is increasing, assume that we've passed it.
-            let lDistanceToNextStop = Util.Distance(lCoordinates, DrivingUI.cRemainingBusStops[0]);
-            if (lDistanceToNextStop > DrivingUI.cPreviousDistanceToNextStop) {
-                if (DrivingUI.cRemainingBusStops.length > 1) { // Don't remove the final stop.
-                    DrivingUI.cRemainingBusStops.shift();
-                }
-                lDistanceToNextStop = Util.Distance(lCoordinates, DrivingUI.cRemainingBusStops[0]);
-            }
-            // Isolate all stops that will appear on Driving UI.
-            const lRelevantStops = [DrivingUI.cRemainingBusStops[0]];
-            if (DrivingUI.cRemainingBusStops.length > 1)
-                lRelevantStops.push(DrivingUI.cRemainingBusStops[1]);
-            if (DrivingUI.cRemainingBusStops.length > 2)
-                lRelevantStops.push(DrivingUI.cRemainingBusStops[2]);
-            if (DrivingUI.cRemainingBusStops.length > 3) {
-                // Add the next timepoint.
-                let lIndex = 3;
-                while (lIndex < DrivingUI.cRemainingBusStops.length) {
-                    if (DrivingUI.cRemainingBusStops[lIndex].mObject.timepoint === 1) {
-                        lRelevantStops.push(DrivingUI.cRemainingBusStops[lIndex]);
-                        break;
-                    }
-                    lIndex++;
-                }
-                // Add the final stop.
-                lRelevantStops.push(DrivingUI.cRemainingBusStops[DrivingUI.cRemainingBusStops.length - 1]);
-            }
-            ;
-            // Generate the bus stops table.
+            const lDistanceToNextStop = CheckNextStop(lCoordinates);
+            const lRelevantBusStops = RelevantBusStops();
+            const lUpcomingStopsTableValues = UpcomingStopsTableValues(lCurrentTime, lRelevantBusStops);
+            // Populate the bus stops table.
             const lTableHeaders = ["Time", "T", "Name", "AvgSpeed", "AdjSpeed", "ETA"];
-            // const lTableValues: Record<string, string>[] = [];
-            let lCountdown = 0; // MM:SS
-            let lAvgSpeedMin = 15; // Average Km/h at max allowed delay
-            let lAvgSpeedMax = 85; // Average Km/h at max allowed lead time
-            let lAdjSpeedMin = 20; // Average min speed adjusted for historic recorded speeds/delays on trip/route
-            let lAdjSpeedMax = 80; // Average max speed adjusted for historic recorded speeds/delays on trip/route
-            let lDeltaETA = 0; // MM:SS
-            let lDelay = 0; // MM:SS
-            const lUpcomingStopsTableValues = lRelevantStops.map(aBusStop => ({
-                Time: `${aBusStop.mObject.departure_time} (${lCountdown})`,
-                T: aBusStop.mObject.timepoint > 0 ? "T" : "",
-                Name: aBusStop.mObject.stop.stop_name,
-                AvgSpeed: `${lAvgSpeedMin} - ${lAvgSpeedMax}`,
-                AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,
-                ETA: `${lDeltaETA} (${lDelay})`,
-            }));
-            // const lFinalDestinationSpacerRow = { Time: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
-            // const lTimepointSpacerRow = { Time: "<span class='small-ui'>Next Timepoint:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
-            // const lTimepointAbsentRow = { Time: "", T: "", Name: "", AvgSpeed: "", AdjSpeed: "", ETA: "" };
-            const lSpacerRow = { Time: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
-            lUpcomingStopsTableValues.splice(3, 0, lSpacerRow);
             UI.PopulateTable("UpcomingStopsTable", lUpcomingStopsTableValues, lTableHeaders, true);
             DrivingUI.cPreviousDistanceToNextStop = lDistanceToNextStop;
         }
@@ -584,6 +638,11 @@ var Main;
         }
     }
     Main.TransitLand = TransitLand;
+    ;
+    function ProcessUserSettings() {
+        Main.cDestinationFilter = Main.cUserSettings.DestinationFilter.split(',').map(aDestination => aDestination.trim());
+    }
+    Main.ProcessUserSettings = ProcessUserSettings;
     ;
     function SetHeadsign(aElementID, aBusNumber, aTripHeadsign, aCurrentTime) {
         const lBusHeadsignField = document.getElementById(aElementID);

@@ -7,14 +7,14 @@ body {
 }
 
 .large-ui {
-    font-size: 24px;
+    font-size: 18px;
     padding: 20px;
 }
 
 .large-ui button,
 .large-ui input,
 .large-ui select {
-    font-size: 24px;
+    font-size: 18px;
     padding: 10px 20px;
     margin-right: 10px;
 }
