@@ -3,6 +3,27 @@ var Util;
 (function (Util) {
     ;
     ;
+    // aOrigin = closest trip point, aFrom = preceding trip point, aTo = Bus stop
+    // If the resulting angle <90 degrees, then the bus stop is ahead of the closest trip point,
+    // and the distance between them needs to be subtracted from the total travel distance to the stop,
+    // else the closest point is ahead of the stop and the distance to the stop needs to be added.
+    function Angle(aOrigin, aFrom, aTo) {
+        const lLineA = {
+            mX: aOrigin.mX - aFrom.mX,
+            mY: aOrigin.mY - aFrom.mY
+        };
+        const lLineB = {
+            mX: aOrigin.mX - aTo.mX,
+            mY: aOrigin.mY - aTo.mY
+        };
+        const lDotProduct = lLineB.mX * lLineA.mX + lLineB.mY * lLineA.mY;
+        const lMagnitudeA = Math.sqrt(lLineB.mX * lLineB.mX + lLineB.mY * lLineB.mY);
+        const lMagnitudeB = Math.sqrt(lLineA.mX * lLineA.mX + lLineA.mY * lLineA.mY);
+        const lAngleRadians = Math.acos(lDotProduct / (lMagnitudeA * lMagnitudeB));
+        return lAngleRadians * 180 / Math.PI;
+    }
+    Util.Angle = Angle;
+    ;
     function GeoDistance(aPoint1, aPoint2) {
         // Calculates the distance in meters between two latitude/longitude geolocation coordinates.
         // X (vertical) is longitude, Y (vertical) is latitude.
@@ -496,37 +517,9 @@ var NewTripUI;
 var DrivingUI;
 (function (DrivingUI) {
     DrivingUI.cPreviousDistanceToNextStop = 999999;
-    function _GenerateBusStopRouteCorrelations() {
-        console.log("=== GenerateBusStopRouteCorrelations Begin ===");
-        let lTripPointIndex = -1;
-        DrivingUI.cBusStopRouteCorrelations = DrivingUI.cRemainingBusStops.map((aBusStop, aBusStopIndex) => {
-            // Find the next point on the route with the shortest distance to the current bus stop.
-            const lTripPointPositions = DrivingUI.cFetchedTrip.shape.geometry.coordinates;
-            lTripPointIndex++;
-            while (lTripPointIndex < lTripPointPositions.length - 1) {
-                const lCurrentTripPointCoordinates = { mX: lTripPointPositions[lTripPointIndex][0], mY: lTripPointPositions[lTripPointIndex][1] };
-                const lNextTripPointCoordinates = { mX: lTripPointPositions[lTripPointIndex + 1][0], mY: lTripPointPositions[lTripPointIndex + 1][1] };
-                const lCurrentDistance = Util.GeoDistance(aBusStop, lCurrentTripPointCoordinates);
-                const lNextDistance = Util.GeoDistance(aBusStop, lNextTripPointCoordinates);
-                console.log(`Trip Point ${lTripPointIndex}, CurDist ${lCurrentDistance}, NextDist ${lNextDistance}, ${aBusStop.mObject.stop.stop_name}`);
-                // console.log(JSON.stringify({ mX: aBusStop.mX, mY: aBusStop.mY }), JSON.stringify(lCurrentTripPointCoordinates), JSON.stringify(lNextTripPointCoordinates));
-                if (lCurrentDistance < lNextDistance) {
-                    console.log("Check");
-                    break;
-                }
-                lTripPointIndex++;
-            }
-            return {
-                BusStopIndex: aBusStopIndex,
-                TripPointIndex: lTripPointIndex,
-            };
-        });
-        console.log("=== GenerateBusStopRouteCorrelations End ===");
-    }
-    ;
-    function GenerateBusStopRouteCorrelations() {
-        console.log("=== GenerateBusStopRouteCorrelations Begin ===");
-        DrivingUI.cBusStopRouteCorrelations = DrivingUI.cRemainingBusStops.map((aBusStop, aBusStopIndex) => {
+    function GenerateTripStopCorrelations() {
+        console.log("=== GenerateTripStopCorrelations Begin ===");
+        DrivingUI.cTripStopCorrelations = DrivingUI.cRemainingBusStops.map((aBusStop) => {
             let lShortestDistance = 999999;
             let lClosestTripPointIndex = -1;
             const lTripPoints = DrivingUI.cFetchedTrip.shape.geometry.coordinates;
@@ -540,14 +533,15 @@ var DrivingUI;
             });
             console.log(`Trip Point ${lClosestTripPointIndex}, CurDist ${lShortestDistance}, ${aBusStop.mObject.stop.stop_name}`);
             return {
-                BusStopIndex: aBusStopIndex,
+                BusStop: aBusStop,
                 TripPointIndex: lClosestTripPointIndex,
             };
         });
-        console.log("=== GenerateBusStopRouteCorrelations End ===");
+        console.log("=== GenerateTripStopCorrelations End ===");
     }
-    DrivingUI.GenerateBusStopRouteCorrelations = GenerateBusStopRouteCorrelations;
+    DrivingUI.GenerateTripStopCorrelations = GenerateTripStopCorrelations;
     ;
+    //!@#TODO!!!
     function GenerateAugmentedGeometry() {
         DrivingUI.cAugmentedGeometry = {
             Geometry: DrivingUI.cFetchedTrip.shape.geometry,
@@ -592,8 +586,8 @@ var DrivingUI;
     function StartTrip() {
         if (DrivingUI.cFetchedTrip) {
             DrivingUI.cRemainingBusStops = DrivingUI.cFetchedTrip.stop_times.map(aBusStop => ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop }));
-            _GenerateBusStopRouteCorrelations();
-            // GenerateAugmentedGeometry();
+            GenerateTripStopCorrelations();
+            GenerateAugmentedGeometry();
             AdvanceToClosestStop(Main.cCurrentPosition.coords);
         }
     }
@@ -602,6 +596,7 @@ var DrivingUI;
     function CheckNextStop(aCurrentCoordinates) {
         let lDistanceToNextStop = Util.GeoDistance(aCurrentCoordinates, DrivingUI.cRemainingBusStops[0]);
         // If distance to bus stop is increasing, assume that we've passed it.
+        //!@#TODO: This is guaranteed to fail! Track distance to trip points instead. You've passed a bus stop once you reach the first trip point beyond it.
         if (lDistanceToNextStop > DrivingUI.cPreviousDistanceToNextStop) {
             if (DrivingUI.cRemainingBusStops.length > 1) { // Don't remove the final stop.
                 DrivingUI.cRemainingBusStops.shift();
