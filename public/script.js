@@ -24,20 +24,32 @@ var Util;
     }
     Util.Angle = Angle;
     ;
+    function CircumferenceAtLatitude(aEquatorialCircumference, aPolarCircumference, aLatitude) {
+        const lEquatorialStepSize = aEquatorialCircumference / (2 * Math.PI);
+        const lPolarStepSize = aPolarCircumference / (2 * Math.PI);
+        const lLatitudeRadians = aLatitude * (Math.PI / 180);
+        const lCosLatitudeSquared = Math.cos(lLatitudeRadians) ** 2;
+        const lSinLatitudeSquared = Math.sin(lLatitudeRadians) ** 2;
+        const lAverageRadius = Math.sqrt((lEquatorialStepSize ** 2 * lCosLatitudeSquared + lPolarStepSize ** 2 * lSinLatitudeSquared) / 2);
+        return 2 * Math.PI * lAverageRadius;
+    }
+    Util.CircumferenceAtLatitude = CircumferenceAtLatitude;
     function GeoDistance(aPoint1, aPoint2) {
         // Calculates the distance in meters between two latitude/longitude geolocation coordinates.
         // X (vertical) is longitude, Y (vertical) is latitude.
-        // This uses an improved euclidian approach that works well over relatively short distances.
+        // This uses a euclidian approach that works well over relatively short distances.
         const lDeltaLatitude = aPoint2.mY - aPoint1.mY;
         const lDeltaLongitude = aPoint2.mX - aPoint1.mX;
         const lAverageLatitude = (aPoint1.mY + aPoint2.mY) / 2;
         // Convert degrees to meters according to earth's polar and equatorial circumference,
-        // adjusting longitude scale according to latitude.
         const lEarthPolarCircumference = 40007863;
         const lEarthEquatorialCircumference = 40075017;
+        const lEarthCircumferenceAtLatitude = CircumferenceAtLatitude(lEarthEquatorialCircumference, lEarthPolarCircumference, lAverageLatitude);
         const lDeltaY = lDeltaLatitude * (lEarthPolarCircumference / 360);
-        const lDeltaX = lDeltaLongitude * (lEarthEquatorialCircumference / 360) * Math.cos(lAverageLatitude * Math.PI / 180);
-        const lDistance = Math.sqrt(lDeltaX * lDeltaX + lDeltaY + lDeltaY);
+        const lDeltaX = lDeltaLongitude * (lEarthCircumferenceAtLatitude / 360); // * Math.cos(lAverageLatitude * Math.PI / 180);
+        // const lDeltaX = lDeltaLongitude * (lEarthEquatorialCircumference / 360) * Math.cos(lAverageLatitude * Math.PI / 180);
+        const lDistance = Math.sqrt(lDeltaX * lDeltaX + lDeltaY * lDeltaY);
+        console.log(`(${lDeltaLongitude}, ${lDeltaLatitude})deg = ${lDistance}m`);
         return lDistance;
     }
     Util.GeoDistance = GeoDistance;
@@ -386,7 +398,7 @@ var NewTripUI;
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
                 const lRoute = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.routes[0];
                 const lBusStopLocations = lRoute.route_stops.map(aBusStop => ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop }));
-                lBusStopLocations.sort(Util.DistanceComparator({ mY: lCurrentLatitude, mX: lCurrentLongitude }, Util.GeoDistance));
+                lBusStopLocations.sort(Util.DistanceComparator({ mX: lCurrentLongitude, mY: lCurrentLatitude }, Util.GeoDistance));
                 const lKeyValuePairs = lBusStopLocations.map(aBusStopLocation => [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`]);
                 UI.PopulateDropdown("BusStopList", lKeyValuePairs);
                 DrivingUI.cFetchedRoute = lRoute;
@@ -582,7 +594,7 @@ var DrivingUI;
         };
     */
     function AdvanceToClosestStop(aCurrentGeoLocation) {
-        const lCurrentLocation = { mY: aCurrentGeoLocation.latitude, mX: aCurrentGeoLocation.longitude };
+        const lCurrentLocation = { mX: aCurrentGeoLocation.longitude, mY: aCurrentGeoLocation.latitude };
         const lDistanceComparator = Util.DistanceComparator(lCurrentLocation, Util.GeoDistance);
         while ((DrivingUI.cRemainingBusStops === null || DrivingUI.cRemainingBusStops === void 0 ? void 0 : DrivingUI.cRemainingBusStops.length) > 1) {
             const lStopCoordinates0 = DrivingUI.cRemainingBusStops[0].mBusStop.stop.geometry.coordinates;
@@ -660,7 +672,7 @@ var DrivingUI;
         const lDateString = Util.DateString(aCurrentTime);
         const lUpcomingStopsTableValues = aRelevantBusStops.map(aBusStop => {
             const lDepartureTimeString = aBusStop.mBusStop.departure_time;
-            const lBusStopCoordinates = { mX: aBusStop.mBusStop.stop.geometry.coordinates[0], mY: aBusStop.mBusStop.stop.geometry.coordinates[0] };
+            const lBusStopCoordinates = { mX: aBusStop.mBusStop.stop.geometry.coordinates[0], mY: aBusStop.mBusStop.stop.geometry.coordinates[1] };
             const lDepartureTime = Util.DateFromStrings(lDateString, lDepartureTimeString);
             const lTimeDifference = Util.DeltaTime(aCurrentTime, lDepartureTime);
             const lTimeDifferenceString = Util.DurationString(lTimeDifference);
@@ -670,14 +682,14 @@ var DrivingUI;
             const lAvgSpeedMax = 3.6 * lDistance / (lTimeDifference / 1000 - 15); // Average Km/h at max allowed lead time
             const lAdjSpeedMin = "---"; // Average min speed adjusted for historic recorded speeds/delays on trip/route
             const lAdjSpeedMax = "---"; // Average max speed adjusted for historic recorded speeds/delays on trip/route
-            const lDeltaETA = 0; // MM:SS
+            const lDeltaETA = 0; //Util.DurationString(lDistance * Main.cCurrentPosition.coords.speed); // MM:SS
             const lDelay = 0; // MM:SS
             return {
                 DepartureTime: `${aBusStop.mBusStop.departure_time} (${lCountdown})`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
                 Name: aBusStop.mBusStop.stop.stop_name,
                 Distance: `${Math.round(lDistance)}m`,
-                AvgSpeed: `${Math.round(lAvgSpeedMin)}km/h - ${Math.round(lAvgSpeedMax)}km/h`,
+                AvgSpeed: `${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)}km/h`,
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,
                 ETA: `${lDeltaETA} (${lDelay})`,
             };
@@ -782,28 +794,47 @@ var Main;
     ;
     function SetHeadsign(aElementID, aBusNumber, aTripHeadsign, aCurrentTime) {
         const lBusHeadsignField = document.getElementById(aElementID);
-        lBusHeadsignField.innerHTML = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+        const lHeadsign = `${aBusNumber}: ${aTripHeadsign}`;
+        const lDateString = `${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+        lBusHeadsignField.innerHTML = `${lHeadsign} | ${lDateString}`;
     }
     Main.SetHeadsign = SetHeadsign;
     ;
     Main.cPositionUpdateCounter = 0;
-    function PositionWatch(aPosition) {
-        const lCoordinate = aPosition.coords;
-        const lCoordinateSpan = document.getElementById('CoordinateSpan');
-        Main.cPositionUpdateCounter++;
-        lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${Main.cPositionUpdateCounter})`;
-        Main.cCurrentPosition = aPosition;
-        DrivingUI.Update();
+    function StartGeolocationWatch() {
+        if (Main.cGeolocationWatchID) {
+            navigator.geolocation.clearWatch(Main.cGeolocationWatchID);
+        }
+        function PositionWatch(aPosition) {
+            Main.cPositionUpdateCounter++;
+            Main.cCurrentPosition = aPosition;
+            const lGeolocationField = document.getElementById("GeolocationValues");
+            const lCoordinates = Main.cCurrentPosition.coords;
+            const lCoordinatesString = `Lat: ${lCoordinates.latitude}, Lon: ${lCoordinates.longitude}, Alt: ${lCoordinates.altitude || "-"}m`;
+            const lDerivativesString = `Spd: ${lCoordinates.speed || "-"}m/s, Heading: ${lCoordinates.heading || "-"}deg`;
+            const lAccuracyString = `Acc: ${lCoordinates.accuracy || "-"}m, AltAcc: ${lCoordinates.altitudeAccuracy || "-"}m`;
+            const lGeolocationTimestampString = `${Util.TimeString(new Date(Main.cCurrentPosition.timestamp))}`;
+            lGeolocationField.innerHTML = `${lCoordinatesString} | ${lDerivativesString} | ${lAccuracyString} (${lGeolocationTimestampString} - ${Main.cPositionUpdateCounter})`;
+            DrivingUI.Update();
+        }
+        ;
+        function GeolocationWatchError(aError) {
+            console.log("Geolocation Error: ", aError.code, aError.message);
+        }
+        Main.cGeolocationWatchID = navigator.geolocation.watchPosition(PositionWatch, GeolocationWatchError, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+        });
     }
-    Main.PositionWatch = PositionWatch;
-    ;
+    Main.StartGeolocationWatch = StartGeolocationWatch;
     window.onload = () => {
         UI.ShowPanel('DrivingPanel');
         SettingsUI.LoadSettingsFromStorage();
         SettingsUI.PopulateSettingsTable();
         const lEndTimeInput = document.getElementById('TripSearchMinutes');
         lEndTimeInput.value = "60";
-        const lWatchID = navigator.geolocation.watchPosition(PositionWatch);
+        StartGeolocationWatch();
     };
 })(Main || (Main = {}));
 ;

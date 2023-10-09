@@ -37,22 +37,37 @@ namespace Util {
 
 
 
+    export function CircumferenceAtLatitude(aEquatorialCircumference: number, aPolarCircumference: number, aLatitude: number): number {
+        const lEquatorialStepSize: number = aEquatorialCircumference / (2 * Math.PI);
+        const lPolarStepSize: number = aPolarCircumference / (2 * Math.PI);
+        const lLatitudeRadians: number = aLatitude * (Math.PI / 180);
+        const lCosLatitudeSquared: number = Math.cos(lLatitudeRadians) ** 2;
+        const lSinLatitudeSquared: number = Math.sin(lLatitudeRadians) ** 2;
+        const lAverageRadius: number = Math.sqrt((lEquatorialStepSize ** 2 * lCosLatitudeSquared + lPolarStepSize ** 2 * lSinLatitudeSquared) / 2);
+        return 2 * Math.PI * lAverageRadius;
+    }
+
+
+
     export function GeoDistance(aPoint1: Coordinates, aPoint2: Coordinates): number {
         // Calculates the distance in meters between two latitude/longitude geolocation coordinates.
         // X (vertical) is longitude, Y (vertical) is latitude.
-        // This uses an improved euclidian approach that works well over relatively short distances.
+        // This uses a euclidian approach that works well over relatively short distances.
+        // It takes into account that the earth is an oblate spheroid.
         const lDeltaLatitude = aPoint2.mY - aPoint1.mY;
         const lDeltaLongitude = aPoint2.mX - aPoint1.mX;
         const lAverageLatitude = (aPoint1.mY + aPoint2.mY) / 2;
 
-        // Convert degrees to meters according to earth's polar and equatorial circumference,
-        // adjusting longitude scale according to latitude.
+        // Convert degrees to meters according to earth's polar and equatorial circumference.
         const lEarthPolarCircumference = 40007863;
         const lEarthEquatorialCircumference = 40075017;
+        const lEarthCircumferenceAtLatitude = CircumferenceAtLatitude(lEarthEquatorialCircumference, lEarthPolarCircumference, lAverageLatitude);
         const lDeltaY = lDeltaLatitude * (lEarthPolarCircumference / 360);
-        const lDeltaX = lDeltaLongitude * (lEarthEquatorialCircumference / 360) * Math.cos(lAverageLatitude * Math.PI / 180);
+        const lDeltaX = lDeltaLongitude * (lEarthCircumferenceAtLatitude / 360);
+        // const lDeltaX = lDeltaLongitude * (lEarthEquatorialCircumference / 360) * Math.cos(lAverageLatitude * Math.PI / 180);
 
-        const lDistance = Math.sqrt(lDeltaX * lDeltaX + lDeltaY + lDeltaY);
+        const lDistance = Math.sqrt(lDeltaX * lDeltaX + lDeltaY * lDeltaY);
+        console.log(`(${lDeltaLongitude}, ${lDeltaLatitude})deg = ${lDistance}m`);
         return lDistance;
     };
 
@@ -686,7 +701,7 @@ namespace NewTripUI {
                 const lBusStopLocations = lRoute.route_stops.map(aBusStop =>
                     ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop } as Util.LocatedObject<TransitLandAPIClient.BusStopSubset>)
                 );
-                lBusStopLocations.sort(Util.DistanceComparator({ mY: lCurrentLatitude, mX: lCurrentLongitude }, Util.GeoDistance));
+                lBusStopLocations.sort(Util.DistanceComparator({ mX: lCurrentLongitude, mY: lCurrentLatitude }, Util.GeoDistance));
                 const lKeyValuePairs = lBusStopLocations.map(aBusStopLocation =>
                     [aBusStopLocation.mObject.id.toString(), `[${aBusStopLocation.mObject.stop_id}] ${aBusStopLocation.mObject.stop_name}`] as [string, string]
                 );
@@ -935,7 +950,7 @@ namespace DrivingUI {
 
 
     export function AdvanceToClosestStop(aCurrentGeoLocation: GeolocationCoordinates): void {
-        const lCurrentLocation = { mY: aCurrentGeoLocation.latitude, mX: aCurrentGeoLocation.longitude }
+        const lCurrentLocation = { mX: aCurrentGeoLocation.longitude, mY: aCurrentGeoLocation.latitude };
         const lDistanceComparator = Util.DistanceComparator(lCurrentLocation, Util.GeoDistance);
 
         while (cRemainingBusStops?.length > 1) {
@@ -1018,7 +1033,7 @@ namespace DrivingUI {
 
         const lUpcomingStopsTableValues = aRelevantBusStops.map(aBusStop => {
             const lDepartureTimeString = aBusStop.mBusStop.departure_time;
-            const lBusStopCoordinates = { mX: aBusStop.mBusStop.stop.geometry.coordinates[0], mY: aBusStop.mBusStop.stop.geometry.coordinates[0] };
+            const lBusStopCoordinates = { mX: aBusStop.mBusStop.stop.geometry.coordinates[0], mY: aBusStop.mBusStop.stop.geometry.coordinates[1] };
             const lDepartureTime = Util.DateFromStrings(lDateString, lDepartureTimeString);
             const lTimeDifference = Util.DeltaTime(aCurrentTime, lDepartureTime);
             const lTimeDifferenceString = Util.DurationString(lTimeDifference);
@@ -1030,14 +1045,14 @@ namespace DrivingUI {
             const lAvgSpeedMax = 3.6 * lDistance / (lTimeDifference / 1000 - 15); // Average Km/h at max allowed lead time
             const lAdjSpeedMin = "---"; // Average min speed adjusted for historic recorded speeds/delays on trip/route
             const lAdjSpeedMax = "---"; // Average max speed adjusted for historic recorded speeds/delays on trip/route
-            const lDeltaETA = 0; // MM:SS
+            const lDeltaETA = 0//Util.DurationString(lDistance * Main.cCurrentPosition.coords.speed); // MM:SS
             const lDelay = 0; // MM:SS
             return {
                 DepartureTime: `${aBusStop.mBusStop.departure_time} (${lCountdown})`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
                 Name: aBusStop.mBusStop.stop.stop_name,
                 Distance: `${Math.round(lDistance)}m`,
-                AvgSpeed: `${Math.round(lAvgSpeedMin)}km/h - ${Math.round(lAvgSpeedMax)}km/h`, // For now, this is based on the straight-line distance (instead of route shape distance),
+                AvgSpeed: `${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)}km/h`, // For now, this is based on the straight-line distance (instead of route shape distance),
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
                 ETA: `${lDeltaETA} (${lDelay})`,
             };
@@ -1120,6 +1135,7 @@ namespace Main {
         DestinationFilter: '', // Comma-separated list of partial headsign matches.
     };
 
+    export let cGeolocationWatchID: number;
     export let cDestinationFilter: string[];
     export let cCurrentPosition: GeolocationPosition;
     export let cRealStartTime = new Date();
@@ -1162,21 +1178,43 @@ namespace Main {
 
     export function SetHeadsign(aElementID: string, aBusNumber: string, aTripHeadsign: string, aCurrentTime: Date): void {
         const lBusHeadsignField = document.getElementById(aElementID) as HTMLParagraphElement;
-        lBusHeadsignField.innerHTML = `${aBusNumber}: ${aTripHeadsign} | ${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+        const lHeadsign = `${aBusNumber}: ${aTripHeadsign}`;
+        const lDateString = `${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
+        lBusHeadsignField.innerHTML = `${lHeadsign} | ${lDateString}`;
     };
 
 
 
     export let cPositionUpdateCounter = 0;
-    export function PositionWatch(aPosition: GeolocationPosition) {
-        const lCoordinate = aPosition.coords;
-        const lCoordinateSpan = document.getElementById('CoordinateSpan') as HTMLSpanElement;
-        cPositionUpdateCounter++;
-        lCoordinateSpan.textContent = `Lat: ${lCoordinate.latitude}, Lon: ${lCoordinate.longitude} (${new Date(aPosition.timestamp).toLocaleString()} - ${cPositionUpdateCounter})`;
-        cCurrentPosition = aPosition;
-        DrivingUI.Update();
-    };
 
+    export function StartGeolocationWatch(): void {
+        if (cGeolocationWatchID) {
+            navigator.geolocation.clearWatch(cGeolocationWatchID);
+        }
+
+        function PositionWatch(aPosition: GeolocationPosition) {
+            cPositionUpdateCounter++;
+            cCurrentPosition = aPosition;
+            const lGeolocationField = document.getElementById("GeolocationValues") as HTMLParagraphElement;
+            const lCoordinates = cCurrentPosition.coords;
+            const lCoordinatesString = `Lat: ${lCoordinates.latitude}, Lon: ${lCoordinates.longitude}, Alt: ${lCoordinates.altitude || "-"}m`;
+            const lDerivativesString = `Spd: ${lCoordinates.speed || "-"}m/s, Heading: ${lCoordinates.heading || "-"}deg`;
+            const lAccuracyString = `Acc: ${lCoordinates.accuracy || "-"}m, AltAcc: ${lCoordinates.altitudeAccuracy || "-"}m`;
+            const lGeolocationTimestampString = `${Util.TimeString(new Date(cCurrentPosition.timestamp))}`;
+            lGeolocationField.innerHTML = `${lCoordinatesString} | ${lDerivativesString} | ${lAccuracyString} (${lGeolocationTimestampString} - ${cPositionUpdateCounter})`;
+            DrivingUI.Update();
+        };
+
+        function GeolocationWatchError(aError: GeolocationPositionError): void {
+            console.log("Geolocation Error: ", aError.code, aError.message);
+        }
+
+        cGeolocationWatchID = navigator.geolocation.watchPosition(PositionWatch, GeolocationWatchError, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+        });
+    }
 
 
     window.onload = () => {
@@ -1186,7 +1224,6 @@ namespace Main {
 
         const lEndTimeInput = document.getElementById('TripSearchMinutes') as HTMLInputElement;
         lEndTimeInput.value = "60";
-
-        const lWatchID = navigator.geolocation.watchPosition(PositionWatch);
+        StartGeolocationWatch();
     };
 };

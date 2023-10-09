@@ -11,7 +11,7 @@
 
 <body class="large-ui">
     <div class="large-container">
-        <p id="BusHeadsign">123: Departure - Destination</p>
+        <p id="BusHeadsign"></p>
     </div>
     <div id="DrivingPanel" class="Panel">
         <div class="large-container">
@@ -20,9 +20,13 @@
             </table>
         </div>
         <div class="large-container">
+            <p id="GeolocationValues"></p>
+        </div>
+        <div class="large-container">
             <button id="SettingsButton" onclick="SettingsUI.OpenSettingsUI()">Settings</button>
             <button id="NewTripButton" onclick="NewTripUI.OpenNewTripUI()">New Trip</button>
-            <span id="CoordinateSpan" class="small-ui"></span>
+            <button id="StopAll" onclick="NewTripUI.StopAllButtonPressed()">Stop All</button>
+            <button id="StopNext" onclick="NewTripUI.StopNextButtonPressed()">Stop Next</button>
         </div>
     </div>
 

@@ -8,19 +8,19 @@ body {
 
 .large-ui {
     font-size: 18px;
-    padding: 20px;
+    padding: 10px;
 }
 
 .large-ui button,
 .large-ui input,
 .large-ui select {
     font-size: 18px;
-    padding: 10px 20px;
+    padding: 10px 10px;
     margin-right: 10px;
 }
 
 .large-container {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .large-ui table {
