@@ -84,16 +84,21 @@ namespace Util {
 
 
 
-    export function DeltaTimeString(aDate1: Date, aDate2: Date): string {
-        const lDeltaMilliseconds = aDate2.getTime() - aDate1.getTime();
-        const lAbsDeltaMilliseconds = Math.abs(lDeltaMilliseconds);
+    export function DeltaTime(aDate1: Date, aDate2: Date): number {
+        return aDate2.getTime() - aDate1.getTime();
+    };
+
+
+
+    export function DurationString(aMilliSeconds: number): string {
+        const lAbsDeltaMilliseconds = Math.abs(aMilliSeconds);
         const lHours = Math.floor(lAbsDeltaMilliseconds / (1000 * 60 * 60));
         const lMinutes = Math.floor((lAbsDeltaMilliseconds % (1000 * 60 * 60)) / (1000 * 60));
         const lSeconds = Math.floor((lAbsDeltaMilliseconds % (1000 * 60)) / 1000);
         const lFormattedHours = lHours.toString().padStart(2, '0');
         const lFormattedMinutes = lMinutes.toString().padStart(2, '0');
         const lFormattedSeconds = lSeconds.toString().padStart(2, '0')
-        const lSign = lDeltaMilliseconds < 0 ? '-' : '+';
+        const lSign = aMilliSeconds < 0 ? '-' : '+';
         return `${lSign}${lFormattedHours}:${lFormattedMinutes}:${lFormattedSeconds}`;
     }
 
@@ -836,17 +841,22 @@ namespace NewTripUI {
 namespace DrivingUI {
 
     export type AugmentedGeometry = {
-        Geometry: TransitLandAPIClient.Line3DGeometry;
-        DrivingInfo: {
-            DistanceToNextPoint: number;
-            DistanceToNextStop: number;
-            NextStop: Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>;
+        mGeometry: TransitLandAPIClient.Line3DGeometry;
+        mDrivingInfo: {
+            mTripDistanceToHere: number;
+            mDistanceToNextPoint: number;
+            mDistanceToNextStop: number;
+            mNextStop: Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>;
         }[];
     };
 
+    export type AugmentedBusStop = {
+        mBusStop: TransitLandAPIClient.BusStopWithTime;
+    };
+
     export type TripStopCorrelation = {
-        BusStop: Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>; // Don't store index into cRemainingBusStops, as that array shrinks over time...
-        TripPointIndex: number;
+        mBusStop: Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>; // Don't store index into cRemainingBusStops, as that array shrinks over time...
+        mTripPointIndex: number;
     };
 
 
@@ -855,58 +865,73 @@ namespace DrivingUI {
     export let cFetchedRoute: TransitLandAPIClient.Route;
     export let cFetchedDepartures: TransitLandAPIClient.Departure[];
     export let cFetchedTrip: TransitLandAPIClient.Trip;
-    export let cRemainingBusStops: Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>[];
+    export let cRemainingBusStops: AugmentedBusStop[];
     export let cTripStopCorrelations: TripStopCorrelation[];
     export let cAugmentedGeometry: AugmentedGeometry;
-    export let cPreviousDistanceToNextStop = 999999;
+    export let cCurrentTripPointIndex: number;
 
 
-
-    export function GenerateTripStopCorrelations(): void {
-        console.log("=== GenerateTripStopCorrelations Begin ===");
-
-        cTripStopCorrelations = cRemainingBusStops.map((aBusStop) => {
-            let lShortestDistance = 999999;
-            let lClosestTripPointIndex = -1;
-            const lTripPoints = cFetchedTrip.shape.geometry.coordinates;
-            lTripPoints.forEach((aTripPoint, aTripPointIndex) => {
-                const lCurrentTripPointCoordinates: Util.Coordinates = { mX: aTripPoint[0], mY: aTripPoint[1] };
-                const lCurrentDistance = Util.GeoDistance(aBusStop, lCurrentTripPointCoordinates);
-                if (lCurrentDistance < lShortestDistance) {
-                    lShortestDistance = lCurrentDistance;
-                    lClosestTripPointIndex = aTripPointIndex;
-                }
-            });
-
-            console.log(`Trip Point ${lClosestTripPointIndex}, CurDist ${lShortestDistance}, ${aBusStop.mObject.stop.stop_name}`);
-
-            return {
-                BusStop: aBusStop,
-                TripPointIndex: lClosestTripPointIndex,
-            };
-        });
-        console.log("=== GenerateTripStopCorrelations End ===");
-    };
-
-
-
-    //!@#TODO!!!
-    export function GenerateAugmentedGeometry(): void {
-        cAugmentedGeometry = {
-            Geometry: cFetchedTrip.shape.geometry,
-            DrivingInfo: cFetchedTrip.shape.geometry.coordinates.map(aPoint3D => {
-                const lNextStop = cRemainingBusStops[0];//!@#TODO...
-                let lDistanceToNextPoint = 0;
-                let lDistanceToNextStop = 0;
+    /*
+        export function GenerateTripStopCorrelations(): void {
+            console.log("=== GenerateTripStopCorrelations Begin ===");
+    
+    
+            // !@#TODO: Complete this declarative version of the imperative code below it...
+            // function ClosestPoint(aBusStop, aTripPoints) {
+            //     return aTripPoints.reduce((aClosestPoint, aPoint) => {
+            //         const lDistance = Util.GeoDistance(aBusStop, aPoint);
+            //         return lDistance < aClosestPoint.distance ? { Point: aPoint, Distance: lDistance } : aClosestPoint;
+            //     }, { Point: null, Distance: Infinity });
+            // }
+            
+            // const cTripStopCorrelations = cRemainingBusStops.map(aBusStop => ClosestPoint(aBusStop, cFetchedTrip.shape.geometry.coordinates).Point);
+            
+    
+            cTripStopCorrelations = cRemainingBusStops.map((aBusStop) => {
+                let lShortestDistance = 999999;
+                let lClosestTripPointIndex = -1;
+                const lTripPoints = cFetchedTrip.shape.geometry.coordinates;
+                lTripPoints.forEach((aTripPoint, aTripPointIndex) => {
+                    const lCurrentTripPointCoordinates: Util.Coordinates = { mX: aTripPoint[0], mY: aTripPoint[1] };
+                    const lCurrentDistance = Util.GeoDistance(aBusStop, lCurrentTripPointCoordinates);
+                    if (lCurrentDistance < lShortestDistance) {
+                        //!@#TODO: Calculate angle between bus stop, closest point, and previous point, to determine if closest is ahead of stop or behind.
+                        // Store whichever closest point that is still ahead of the stop!
+                        lShortestDistance = lCurrentDistance;
+                        lClosestTripPointIndex = aTripPointIndex;
+                    }
+                });
+    
+                console.log(`Trip Point ${lClosestTripPointIndex}, CurDist ${lShortestDistance}, ${aBusStop.mObject.stop.stop_name}`);
+    
                 return {
-                    DistanceToNextPoint: lDistanceToNextPoint,
-                    DistanceToNextStop: lDistanceToNextStop,
-                    NextStop: lNextStop,
+                    mBusStop: aBusStop,
+                    mTripPointIndex: lClosestTripPointIndex,
                 };
-            }),
+            });
+            console.log("=== GenerateTripStopCorrelations End ===");
         };
-    };
-
+    
+    
+    
+        export function GenerateAugmentedGeometry(): void {
+            cAugmentedGeometry = {
+                mGeometry: cFetchedTrip.shape.geometry,
+                mDrivingInfo: cFetchedTrip.shape.geometry.coordinates.map(aPoint3D => {
+                    const lNextStop = cRemainingBusStops[0];//!@#TODO...
+                    let lTripDistanceToHere = 0;
+                    let lDistanceToNextPoint = 0;
+                    let lDistanceToNextStop = 0;
+                    return {
+                        mTripDistanceToHere: lTripDistanceToHere,
+                        mDistanceToNextPoint: lDistanceToNextPoint,
+                        mDistanceToNextStop: lDistanceToNextStop,
+                        mNextStop: lNextStop,
+                    };
+                }),
+            };
+        };
+    */
 
 
     export function AdvanceToClosestStop(aCurrentGeoLocation: GeolocationCoordinates): void {
@@ -914,19 +939,16 @@ namespace DrivingUI {
         const lDistanceComparator = Util.DistanceComparator(lCurrentLocation, Util.GeoDistance);
 
         while (cRemainingBusStops?.length > 1) {
-            const lStopCoordinates0 = cRemainingBusStops[0].mObject.stop.geometry.coordinates;
-            const lStopCoordinates1 = cRemainingBusStops[1].mObject.stop.geometry.coordinates;
+            const lStopCoordinates0 = cRemainingBusStops[0].mBusStop.stop.geometry.coordinates;
+            const lStopCoordinates1 = cRemainingBusStops[1].mBusStop.stop.geometry.coordinates;
             const lStopLocation0: Util.Coordinates = { mX: lStopCoordinates0[0], mY: lStopCoordinates0[1] };
             const lStopLocation1: Util.Coordinates = { mX: lStopCoordinates1[0], mY: lStopCoordinates1[1] };
             const lDeltaDistance = lDistanceComparator(lStopLocation0, lStopLocation1);
 
             if (lDeltaDistance > 0) {
                 const lByeStop = cRemainingBusStops.shift();
-                const lCurrentLocationString = JSON.stringify(lCurrentLocation);
-                const lStopLocation0String = JSON.stringify(lStopLocation0);
-                const lStopLocation1String = JSON.stringify(lStopLocation1);
-                console.log(`Skipping ${lByeStop?.mObject.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
-                console.log(`   in favor of ${cRemainingBusStops[0].mObject.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation1)}`);
+                console.log(`Skipping ${lByeStop?.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                console.log(`   in favor of ${cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation1)}`);
             } else {
                 break;
             }
@@ -934,38 +956,38 @@ namespace DrivingUI {
     };
 
 
-
-    export function StartTrip(): void {
-        if (cFetchedTrip) {
-            cRemainingBusStops = cFetchedTrip.stop_times.map(aBusStop =>
-                ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop } as Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>)
-            );
-            GenerateTripStopCorrelations();
-            GenerateAugmentedGeometry();
-            AdvanceToClosestStop(Main.cCurrentPosition.coords);
-        }
-    };
-
-
-
-    export function CheckNextStop(aCurrentCoordinates: Util.Coordinates): number {
-        let lDistanceToNextStop = Util.GeoDistance(aCurrentCoordinates, cRemainingBusStops[0]);
-
-        // If distance to bus stop is increasing, assume that we've passed it.
-        //!@#TODO: This is guaranteed to fail! Track distance to trip points instead. You've passed a bus stop once you reach the first trip point beyond it.
-        if (lDistanceToNextStop > cPreviousDistanceToNextStop) {
-            if (cRemainingBusStops.length > 1) { // Don't remove the final stop.
-                cRemainingBusStops.shift();
+    /*
+        export function CheckNextStop(aCurrentCoordinates: Util.Coordinates): number {
+            let lDistanceToNextStop = Util.GeoDistance(aCurrentCoordinates, cRemainingBusStops[0]);
+    
+            // If distance to bus stop is increasing, assume that we've passed it.
+            //!@#TODO: This is guaranteed to fail! Track distance to trip points instead. You've passed a bus stop once you reach the first trip point beyond it.
+            const cPreviousDistanceToNextStop = Infinity;//!@#DELETEME
+            if (lDistanceToNextStop > cPreviousDistanceToNextStop) {
+                if (cRemainingBusStops.length > 1) { // Don't remove the final stop.
+                    cRemainingBusStops.shift();
+                }
+                lDistanceToNextStop = Util.GeoDistance(aCurrentCoordinates, cRemainingBusStops[0]);
             }
-            lDistanceToNextStop = Util.GeoDistance(aCurrentCoordinates, cRemainingBusStops[0]);
-        }
+    
+            return lDistanceToNextStop;
+        };
+    
+    
+    
+        export function NextTripStopCorrelationIndex(aTripPointIndex: number): number {
+            let lIndex = -1;
+            while (++lIndex < cTripStopCorrelations.length) {
+                if (cTripStopCorrelations[lIndex].mTripPointIndex >= aTripPointIndex) {
+                    return lIndex;
+                }
+            };
+            return -1;
+        };
+    */
 
-        return lDistanceToNextStop;
-    };
 
-
-
-    export function RelevantBusStops(): Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>[] {
+    export function RelevantBusStops(aCurrentTripPointIndex: number): AugmentedBusStop[] {
         // Isolate all stops that will appear on Driving UI.
         const lRelevantBusStops = [cRemainingBusStops[0]];
 
@@ -976,7 +998,7 @@ namespace DrivingUI {
             // Add the next timepoint.
             let lIndex = 3;
             while (lIndex < cRemainingBusStops.length) {
-                if (cRemainingBusStops[lIndex].mObject.timepoint === 1) {
+                if (cRemainingBusStops[lIndex].mBusStop.timepoint === 1) {
                     lRelevantBusStops.push(cRemainingBusStops[lIndex]);
                     break;
                 }
@@ -991,26 +1013,31 @@ namespace DrivingUI {
 
 
 
-    export function UpcomingStopsTableValues(aCurrentTime: Date, aRelevantBusStops: Util.LocatedObject<TransitLandAPIClient.BusStopWithTime>[]): Record<string, string>[] {
+    export function UpcomingStopsTableValues(aCurrentCoordinates: Util.Coordinates, aCurrentTime: Date, aRelevantBusStops: AugmentedBusStop[]): Record<string, string>[] {
         const lDateString = Util.DateString(aCurrentTime);
 
         const lUpcomingStopsTableValues = aRelevantBusStops.map(aBusStop => {
-            const lDepartureTimeString = aBusStop.mObject.departure_time;
+            const lDepartureTimeString = aBusStop.mBusStop.departure_time;
+            const lBusStopCoordinates = { mX: aBusStop.mBusStop.stop.geometry.coordinates[0], mY: aBusStop.mBusStop.stop.geometry.coordinates[0] };
             const lDepartureTime = Util.DateFromStrings(lDateString, lDepartureTimeString);
-            const lTimeDifferenceString = Util.DeltaTimeString(aCurrentTime, lDepartureTime);
+            const lTimeDifference = Util.DeltaTime(aCurrentTime, lDepartureTime);
+            const lTimeDifferenceString = Util.DurationString(lTimeDifference);
+
 
             const lCountdown = lTimeDifferenceString; // HH:MM:SS
-            const lAvgSpeedMin = 15; // Average Km/h at max allowed delay
-            const lAvgSpeedMax = 85; // Average Km/h at max allowed lead time
-            const lAdjSpeedMin = 20; // Average min speed adjusted for historic recorded speeds/delays on trip/route
-            const lAdjSpeedMax = 80; // Average max speed adjusted for historic recorded speeds/delays on trip/route
+            const lDistance = Util.GeoDistance(aCurrentCoordinates, lBusStopCoordinates);
+            const lAvgSpeedMin = 3.6 * lDistance / (lTimeDifference / 1000 + 60); // Average Km/h at max allowed delay
+            const lAvgSpeedMax = 3.6 * lDistance / (lTimeDifference / 1000 - 15); // Average Km/h at max allowed lead time
+            const lAdjSpeedMin = "---"; // Average min speed adjusted for historic recorded speeds/delays on trip/route
+            const lAdjSpeedMax = "---"; // Average max speed adjusted for historic recorded speeds/delays on trip/route
             const lDeltaETA = 0; // MM:SS
             const lDelay = 0; // MM:SS
             return {
-                DepartureTime: `${aBusStop.mObject.departure_time} (${lCountdown})`,
-                T: aBusStop.mObject.timepoint > 0 ? "T" : "",
-                Name: aBusStop.mObject.stop.stop_name,
-                AvgSpeed: `${lAvgSpeedMin} - ${lAvgSpeedMax}`, // For now, this is based on the straight-line distance (instead of route shape distance),
+                DepartureTime: `${aBusStop.mBusStop.departure_time} (${lCountdown})`,
+                T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
+                Name: aBusStop.mBusStop.stop.stop_name,
+                Distance: `${Math.round(lDistance)}m`,
+                AvgSpeed: `${Math.round(lAvgSpeedMin)}km/h - ${Math.round(lAvgSpeedMax)}km/h`, // For now, this is based on the straight-line distance (instead of route shape distance),
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
                 ETA: `${lDeltaETA} (${lDelay})`,
             };
@@ -1019,9 +1046,43 @@ namespace DrivingUI {
         // const lFinalDestinationSpacerRow = { DepartureTime: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
         // const lTimepointSpacerRow = { DepartureTime: "<span class='small-ui'>Next Timepoint:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
         // const lTimepointAbsentRow = { DepartureTime: "", T: "", Name: "", AvgSpeed: "", AdjSpeed: "", ETA: "" };
-        const lSpacerRow = { DepartureTime: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+        const lSpacerRow = { DepartureTime: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", Distance: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
         lUpcomingStopsTableValues.splice(3, 0, lSpacerRow);
         return lUpcomingStopsTableValues;
+    };
+
+
+
+    export function ClosestTripPointIndex(aCurrentCoordinates: Util.Coordinates): number {
+        const lGeometry = cFetchedTrip.shape.geometry.coordinates;
+        let lClosestDistance = Infinity;
+
+        lGeometry.forEach((aPoint, aIndex) => {
+            const lDistance = Util.GeoDistance(aCurrentCoordinates, { mX: aPoint[0], mY: aPoint[1] });
+            if (lDistance < lClosestDistance) {
+                cCurrentTripPointIndex = aIndex;
+                lClosestDistance = lDistance;
+            }
+        });
+
+        return cCurrentTripPointIndex;
+    };
+
+
+
+    export function GenerateAugmentedBusStops() {
+        cRemainingBusStops = cFetchedTrip.stop_times.map(aBusStop => ({ mBusStop: aBusStop }));
+    };
+
+
+
+    export function StartTrip(): void {
+        if (cFetchedTrip) {
+            cCurrentTripPointIndex = 0;
+            GenerateAugmentedBusStops();
+            // GenerateTripStopCorrelations();
+            // GenerateAugmentedGeometry();
+        }
     };
 
 
@@ -1034,19 +1095,16 @@ namespace DrivingUI {
 
         if (cFetchedTrip) {
             const lLocation = Main.cCurrentPosition.coords;
-            const lCoordinates: Util.Coordinates = { mY: lLocation.latitude, mX: lLocation.longitude };
-            const lLocationTime = new Date(Main.cCurrentPosition.timestamp);
+            const lCurrentCoordinates: Util.Coordinates = { mX: lLocation.longitude, mY: lLocation.latitude };
             const lTrip = cFetchedTrip;
-
-            const lDistanceToNextStop = CheckNextStop(lCoordinates);
-            const lRelevantBusStops = RelevantBusStops();
-            const lUpcomingStopsTableValues = UpcomingStopsTableValues(lCurrentTime, lRelevantBusStops);
+            AdvanceToClosestStop(lLocation);
+            const lRelevantBusStops = RelevantBusStops(cCurrentTripPointIndex);
+            //!@#TODO: Ensure lCurrentTime is timestamp of lCurrentCoordinates from GeoLocation:
+            const lUpcomingStopsTableValues = UpcomingStopsTableValues(lCurrentCoordinates, lCurrentTime, lRelevantBusStops);
 
             // Populate the bus stops table.
-            const lTableHeaders = ["DepartureTime", "T", "Name", "AvgSpeed", "AdjSpeed", "ETA"];
+            const lTableHeaders = ["DepartureTime", "T", "Name", "Distance", "AvgSpeed", "AdjSpeed", "ETA"];
             UI.PopulateTable("UpcomingStopsTable", lUpcomingStopsTableValues, lTableHeaders, true);
-
-            cPreviousDistanceToNextStop = lDistanceToNextStop;
         }
     };
 };
