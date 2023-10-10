@@ -550,6 +550,7 @@ var NewTripUI;
 ;
 var DrivingUI;
 (function (DrivingUI) {
+    DrivingUI.cAtBusStop = false;
     /*
         export function GenerateTripStopCorrelations(): void {
             console.log("=== GenerateTripStopCorrelations Begin ===");
@@ -626,6 +627,17 @@ var DrivingUI;
                 console.log(`   in favor of ${DrivingUI.cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation1)}`);
             }
             else {
+                if (Util.GeoDistance(lCurrentLocation, lStopLocation0) < +Main.cUserSettings.AtBusStopRange) {
+                    DrivingUI.cAtBusStop = true;
+                    console.log(`Approaching stop ${DrivingUI.cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                }
+                else {
+                    if (DrivingUI.cAtBusStop) {
+                        DrivingUI.cAtBusStop = false;
+                        const lByeStop = DrivingUI.cRemainingBusStops.shift();
+                        console.log(`Passing stop ${lByeStop === null || lByeStop === void 0 ? void 0 : lByeStop.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                    }
+                }
                 break;
             }
         }
@@ -688,7 +700,7 @@ var DrivingUI;
     ;
     function UpcomingStopsTableValues(aCurrentCoordinates, aCurrentTime, aRelevantBusStops) {
         const lDateString = Util.DateString(aCurrentTime);
-        const lUpcomingStopsTableValues = aRelevantBusStops.map(aBusStop => {
+        const lUpcomingStopsTableValues = aRelevantBusStops.map((aBusStop, aIndex) => {
             const lDepartureTimeString = aBusStop.mBusStop.departure_time;
             const lBusStopCoordinates = { mX: aBusStop.mBusStop.stop.geometry.coordinates[0], mY: aBusStop.mBusStop.stop.geometry.coordinates[1] };
             const lDepartureTime = Util.DateFromStrings(lDateString, lDepartureTimeString);
@@ -704,10 +716,18 @@ var DrivingUI;
             const lDeltaETA = 1000 * lDistance / lSpeed;
             const lDelay = lDeltaETA - lCountdown;
             const lETAString = `${Util.DurationStringHHMMSS(lDelay)} (${Util.DurationStringHHMMSS(lDeltaETA)})`;
+            if (aIndex == 0) {
+                DrivingUI.cMinSpeed = lAvgSpeedMin;
+                DrivingUI.cMaxSpeed = lAvgSpeedMax;
+                DrivingUI.cExactSpeed = lAvgSpeedExact;
+                DrivingUI.cPunctualityString = lETAString;
+                DrivingUI.cCurrentDelay = lDelay;
+                DrivingUI.cCurrentEta = lDeltaETA;
+            }
             return {
                 Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
-                Name: aBusStop.mBusStop.stop.stop_name,
+                Name: aIndex == 0 && DrivingUI.cAtBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
                 Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
@@ -767,9 +787,75 @@ var DrivingUI;
             // Populate the bus stops table.
             const lTableHeaders = ["Time", "T", "Name", "Distance", "AvgSpeed", "AdjSpeed"];
             UI.PopulateTable("UpcomingStopsTable", lUpcomingStopsTableValues, lTableHeaders, true);
+            DrawSpeedometer();
         }
     }
     DrivingUI.Update = Update;
+    ;
+    function DrawSpeedometer() {
+        const lSpeed = (Main.cCurrentPosition.coords.speed || 0) * 3.6;
+        DrawPips();
+        DrawCurrentSpeed(lSpeed);
+        DrawSpeedMarker(lSpeed, 5, "#90EE90", "CurrentSpeedMarker");
+        DrawSpeedMarker(DrivingUI.cMaxSpeed, 3, "red", "MaxSpeedMarker");
+        DrawSpeedMarker(DrivingUI.cExactSpeed, 3, "green", "ExactSpeedMarker");
+        DrawSpeedMarker(DrivingUI.cMinSpeed, 3, "yellow", "MinSpeedMarker");
+    }
+    DrivingUI.DrawSpeedometer = DrawSpeedometer;
+    ;
+    function DrawPips() {
+        const lSvgElement = document.getElementById("SpeedBar");
+        for (let lSpeedPip = 0; lSpeedPip <= 100; lSpeedPip += 10) {
+            const lPositionX = (lSpeedPip / 100) * 500;
+            const lLineElement = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            lLineElement.setAttribute("x1", lPositionX.toString());
+            lLineElement.setAttribute("y1", "15");
+            lLineElement.setAttribute("x2", lPositionX.toString());
+            lLineElement.setAttribute("y2", "35");
+            lLineElement.setAttribute("stroke", "black");
+            lSvgElement === null || lSvgElement === void 0 ? void 0 : lSvgElement.appendChild(lLineElement);
+        }
+    }
+    DrivingUI.DrawPips = DrawPips;
+    ;
+    function DrawCurrentSpeed(aCurrentSpeed) {
+        const lSvgElement = document.getElementById("SpeedBar");
+        const lPositionX = (aCurrentSpeed / 100) * 500;
+        const lExistingIndicator = document.getElementById("SpeedIndicator");
+        if (lExistingIndicator)
+            lSvgElement === null || lSvgElement === void 0 ? void 0 : lSvgElement.removeChild(lExistingIndicator);
+        const lRectangleElement = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        lRectangleElement.setAttribute("id", "SpeedIndicator");
+        lRectangleElement.setAttribute("x", "0");
+        lRectangleElement.setAttribute("y", "20");
+        lRectangleElement.setAttribute("rx", "5");
+        lRectangleElement.setAttribute("ry", "5");
+        lRectangleElement.setAttribute("width", lPositionX.toString());
+        lRectangleElement.setAttribute("height", "10");
+        lRectangleElement.setAttribute("fill", "#90EE90");
+        lSvgElement === null || lSvgElement === void 0 ? void 0 : lSvgElement.appendChild(lRectangleElement);
+    }
+    DrivingUI.DrawCurrentSpeed = DrawCurrentSpeed;
+    ;
+    function DrawSpeedMarker(aSpeed, aWidth, aColor, aID) {
+        const lSvgElement = document.getElementById("SpeedBar");
+        const lPositionX = (aSpeed / 100) * 500 - Math.floor(aWidth / 2);
+        const lRectangleElement = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const lExistingMarker = document.getElementById(aID);
+        if (lExistingMarker)
+            lSvgElement === null || lSvgElement === void 0 ? void 0 : lSvgElement.removeChild(lExistingMarker);
+        lRectangleElement.setAttribute("id", aID);
+        lRectangleElement.setAttribute("x", lPositionX.toString());
+        lRectangleElement.setAttribute("y", "15");
+        lRectangleElement.setAttribute("width", aWidth.toString());
+        lRectangleElement.setAttribute("height", "20");
+        lRectangleElement.setAttribute("fill", aColor);
+        // lRectangleElement.setAttribute("fill", "none");
+        // lRectangleElement.setAttribute("stroke", aColor);
+        // lRectangleElement.setAttribute("stroke-width", "1");
+        lSvgElement === null || lSvgElement === void 0 ? void 0 : lSvgElement.appendChild(lRectangleElement);
+    }
+    DrivingUI.DrawSpeedMarker = DrawSpeedMarker;
     ;
 })(DrivingUI || (DrivingUI = {}));
 ;
@@ -778,6 +864,7 @@ var Main;
     Main.cUserSettings = {
         TransitLandAPIKey: '',
         OperatorID: '',
+        AtBusStopRange: '25',
         BusStopDelaySeconds: '30',
         DestinationFilter: '',
         DepartureMaxLead: '-10',
@@ -819,7 +906,7 @@ var Main;
         const lBusHeadsignField = document.getElementById(aElementID);
         const lHeadsign = `${aBusNumber}: ${aTripHeadsign}`;
         const lDateString = `${Util.DateString(aCurrentTime)} ${Util.TimeString(aCurrentTime)}`;
-        lBusHeadsignField.innerHTML = `${lHeadsign} | ${lDateString}`;
+        lBusHeadsignField.innerHTML = `${lHeadsign} | ${lDateString} | Punctuality: ${DrivingUI.cPunctualityString}`;
     }
     Main.SetHeadsign = SetHeadsign;
     ;
