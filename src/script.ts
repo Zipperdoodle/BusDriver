@@ -13,6 +13,13 @@ namespace Util {
     };
 
 
+
+    export function Clamp(aValue: number, aMinimum: number, aMaximum: number): number {
+        return Math.min(Math.max(aValue, aMinimum), aMaximum);
+    };
+
+
+
     // aOrigin = closest trip point, aFrom = preceding trip point, aTo = Bus stop
     // If the resulting angle <90 degrees, then the bus stop is ahead of the closest trip point,
     // and the distance between them needs to be subtracted from the total travel distance to the stop,
@@ -1052,27 +1059,28 @@ namespace DrivingUI {
             const lCountdown = Util.DeltaTime(aCurrentTime, lDepartureTime);
 
             const lDistance = Util.GeoDistance(aCurrentCoordinates, lBusStopCoordinates);
-            const lAvgSpeedMin = 3.6 * lDistance / (lCountdown / 1000 + 60); // Average Km/h at max allowed delay
-            const lAvgSpeedMax = 3.6 * lDistance / (lCountdown / 1000 - 15); // Average Km/h at max allowed lead time
+            const lAvgSpeedMin = Util.Clamp(3.6 * lDistance / (lCountdown / 1000 + (+Main.cUserSettings.DepartureMaxDelay)), 0, 99); // Average Km/h at max allowed delay
+            const lAvgSpeedMax = Util.Clamp(3.6 * lDistance / (lCountdown / 1000 - (+Main.cUserSettings.DepartureMaxLead)), 0, 99); // Average Km/h at max allowed lead time
+            const lAvgSpeedExact = Util.Clamp(3.6 * lDistance / (lCountdown / 1000), 0, 99); // Average Km/h at exact schedule time
             const lAdjSpeedMin = "---"; // Average min speed adjusted for historic recorded speeds/delays on trip/route
             const lAdjSpeedMax = "---"; // Average max speed adjusted for historic recorded speeds/delays on trip/route
-            const lDeltaETA = 1000 * lDistance / (Main.cCurrentPosition.coords.speed || 0); // MM:SS
+            const lDeltaETA = Util.Clamp(1000 * lDistance / (Main.cCurrentPosition.coords.speed || 30), 0, 99 * 60 + 99); // MM:SS
             const lDelay = lDeltaETA - lCountdown; // MM:SS
             return {
-                DepartureTime: `${aBusStop.mBusStop.departure_time} (${Util.DurationStringMMSS(lCountdown)})`,
+                ETA: `${aBusStop.mBusStop.departure_time} (${Util.DurationStringMMSS(lCountdown)})<br>${Util.DurationStringMMSS(lDelay)} (${Util.DurationStringMMSS(lDeltaETA)})`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
                 Name: aBusStop.mBusStop.stop.stop_name,
-                Distance: `${Math.round(lDistance)}m`,
-                AvgSpeed: `${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)}km/h`, // For now, this is based on the straight-line distance (instead of route shape distance),
+                Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
+                AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`, // For now, this is based on the straight-line distance (instead of route shape distance),
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
-                ETA: `${Util.DurationStringMMSS(lDeltaETA)} (${Util.DurationStringMMSS(lDelay)})`,
+                // ETA: `${Util.DurationStringMMSS(lDeltaETA)} (${Util.DurationStringMMSS(lDelay)})`,
             };
         });
 
         // const lFinalDestinationSpacerRow = { DepartureTime: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
         // const lTimepointSpacerRow = { DepartureTime: "<span class='small-ui'>Next Timepoint:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
         // const lTimepointAbsentRow = { DepartureTime: "", T: "", Name: "", AvgSpeed: "", AdjSpeed: "", ETA: "" };
-        const lSpacerRow = { DepartureTime: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", Distance: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
+        const lSpacerRow = { ETA: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", Distance: "---", AvgSpeed: "---", AdjSpeed: "---" };
         lUpcomingStopsTableValues.splice(3, 0, lSpacerRow);
         return lUpcomingStopsTableValues;
     };
@@ -1129,7 +1137,7 @@ namespace DrivingUI {
             const lUpcomingStopsTableValues = UpcomingStopsTableValues(lCurrentCoordinates, lCurrentTime, lRelevantBusStops);
 
             // Populate the bus stops table.
-            const lTableHeaders = ["DepartureTime", "T", "Name", "Distance", "AvgSpeed", "AdjSpeed", "ETA"];
+            const lTableHeaders = ["ETA", "T", "Name", "Distance", "AvgSpeed", "AdjSpeed"];
             UI.PopulateTable("UpcomingStopsTable", lUpcomingStopsTableValues, lTableHeaders, true);
         }
     };
@@ -1144,6 +1152,8 @@ namespace Main {
         OperatorID: '',
         BusStopDelaySeconds: '30',
         DestinationFilter: '', // Comma-separated list of partial headsign matches.
+        DepartureMaxLead: '-10', // How early you're allowed to leave a timepoint
+        DepartureMaxDelay: '50', // How late you're allowed to leave a timepoint
         NewTripSearchStartTimeOffset: '-14',
         NewTripSearchStartTimeRange: '58',
     };
@@ -1211,9 +1221,9 @@ namespace Main {
             const lGeolocationField = document.getElementById("GeolocationValues") as HTMLParagraphElement;
             const lCoordinates = cCurrentPosition.coords;
             const lCoordinatesString = `Lat: ${lCoordinates.latitude}, Lon: ${lCoordinates.longitude}, Alt: ${lCoordinates.altitude || "-"}m`;
-            const lSpeed = Math.round((lCoordinates.speed || 0) * 100) / 100;
+            const lSpeed = Math.round((lCoordinates.speed || 0) * 3.6 * 100) / 100; // Converted from m/s to km/h
             const lHeading = Math.round((lCoordinates.heading || 0) * 100) / 100;
-            const lDerivativesString = `Spd: ${lSpeed}m/s, Heading: ${lHeading}deg`;
+            const lDerivativesString = `Spd: ${lSpeed}km/h, Heading: ${lHeading}deg`;
             const lAccuracyString = `Acc: ${lCoordinates.accuracy || "-"}m, AltAcc: ${lCoordinates.altitudeAccuracy || "-"}m`;
             const lGeolocationTimestampString = `${Util.TimeString(new Date(cCurrentPosition.timestamp))}`;
             lGeolocationField.innerHTML = `${lCoordinatesString} | ${lDerivativesString}<br>${lAccuracyString} (${lGeolocationTimestampString} - ${cPositionUpdateCounter})`;
