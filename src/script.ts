@@ -45,12 +45,12 @@ namespace Util {
 
 
     export function CircumferenceAtLatitude(aEquatorialCircumference: number, aPolarCircumference: number, aLatitude: number): number {
-        const lEquatorialStepSize: number = aEquatorialCircumference / (2 * Math.PI);
-        const lPolarStepSize: number = aPolarCircumference / (2 * Math.PI);
+        const lEquatorialRadius: number = aEquatorialCircumference / (2 * Math.PI);
+        const lPolarRadius: number = aPolarCircumference / (2 * Math.PI);
         const lLatitudeRadians: number = aLatitude * (Math.PI / 180);
         const lCosLatitudeSquared: number = Math.cos(lLatitudeRadians) ** 2;
         const lSinLatitudeSquared: number = Math.sin(lLatitudeRadians) ** 2;
-        const lAverageRadius: number = Math.sqrt((lEquatorialStepSize ** 2 * lCosLatitudeSquared + lPolarStepSize ** 2 * lSinLatitudeSquared) / 2);
+        const lAverageRadius: number = Math.sqrt((lEquatorialRadius ** 2 * lCosLatitudeSquared + lPolarRadius ** 2 * lSinLatitudeSquared) / 2);
         return 2 * Math.PI * lAverageRadius;
     }
 
@@ -74,7 +74,7 @@ namespace Util {
         // const lDeltaX = lDeltaLongitude * (lEarthEquatorialCircumference / 360) * Math.cos(lAverageLatitude * Math.PI / 180);
 
         const lDistance = Math.sqrt(lDeltaX * lDeltaX + lDeltaY * lDeltaY);
-        console.log(`(${lDeltaLongitude}, ${lDeltaLatitude})deg = ${lDistance}m`);
+        // console.log(`(${lDeltaLongitude}, ${lDeltaLatitude})deg = ${lDistance}m`);
         return lDistance;
     };
 

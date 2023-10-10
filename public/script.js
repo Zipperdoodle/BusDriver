@@ -30,12 +30,12 @@ var Util;
     Util.Angle = Angle;
     ;
     function CircumferenceAtLatitude(aEquatorialCircumference, aPolarCircumference, aLatitude) {
-        const lEquatorialStepSize = aEquatorialCircumference / (2 * Math.PI);
-        const lPolarStepSize = aPolarCircumference / (2 * Math.PI);
+        const lEquatorialRadius = aEquatorialCircumference / (2 * Math.PI);
+        const lPolarRadius = aPolarCircumference / (2 * Math.PI);
         const lLatitudeRadians = aLatitude * (Math.PI / 180);
         const lCosLatitudeSquared = Math.cos(lLatitudeRadians) ** 2;
         const lSinLatitudeSquared = Math.sin(lLatitudeRadians) ** 2;
-        const lAverageRadius = Math.sqrt((lEquatorialStepSize ** 2 * lCosLatitudeSquared + lPolarStepSize ** 2 * lSinLatitudeSquared) / 2);
+        const lAverageRadius = Math.sqrt((lEquatorialRadius ** 2 * lCosLatitudeSquared + lPolarRadius ** 2 * lSinLatitudeSquared) / 2);
         return 2 * Math.PI * lAverageRadius;
     }
     Util.CircumferenceAtLatitude = CircumferenceAtLatitude;
@@ -55,7 +55,7 @@ var Util;
         const lDeltaX = lDeltaLongitude * (lEarthCircumferenceAtLatitude / 360);
         // const lDeltaX = lDeltaLongitude * (lEarthEquatorialCircumference / 360) * Math.cos(lAverageLatitude * Math.PI / 180);
         const lDistance = Math.sqrt(lDeltaX * lDeltaX + lDeltaY * lDeltaY);
-        console.log(`(${lDeltaLongitude}, ${lDeltaLatitude})deg = ${lDistance}m`);
+        // console.log(`(${lDeltaLongitude}, ${lDeltaLatitude})deg = ${lDistance}m`);
         return lDistance;
     }
     Util.GeoDistance = GeoDistance;
@@ -705,13 +705,12 @@ var DrivingUI;
             const lDelay = lDeltaETA - lCountdown;
             const lETAString = `${Util.DurationStringHHMMSS(lDelay)} (${Util.DurationStringHHMMSS(lDeltaETA)})`;
             return {
-                Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed ? lETAString : "---"}`,
+                Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
                 Name: aBusStop.mBusStop.stop.stop_name,
                 Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
-                // ETA: `${Util.DurationStringMMSS(lDeltaETA)} (${Util.DurationStringMMSS(lDelay)})`,
             };
         });
         // const lFinalDestinationSpacerRow = { DepartureTime: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
