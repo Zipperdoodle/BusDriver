@@ -1060,27 +1060,29 @@ namespace DrivingUI {
 
             const lDistance = Util.GeoDistance(aCurrentCoordinates, lBusStopCoordinates);
             const lAvgSpeedMin = Util.Clamp(3.6 * lDistance / (lCountdown / 1000 + (+Main.cUserSettings.DepartureMaxDelay)), 0, 99); // Average Km/h at max allowed delay
-            const lAvgSpeedMax = Util.Clamp(3.6 * lDistance / (lCountdown / 1000 - (+Main.cUserSettings.DepartureMaxLead)), 0, 99); // Average Km/h at max allowed lead time
+            const lAvgSpeedMax = Util.Clamp(3.6 * lDistance / (lCountdown / 1000 + (+Main.cUserSettings.DepartureMaxLead)), 0, 99); // Average Km/h at max allowed lead time
             const lAvgSpeedExact = Util.Clamp(3.6 * lDistance / (lCountdown / 1000), 0, 99); // Average Km/h at exact schedule time
             const lAdjSpeedMin = "---"; // Average min speed adjusted for historic recorded speeds/delays on trip/route
             const lAdjSpeedMax = "---"; // Average max speed adjusted for historic recorded speeds/delays on trip/route
-            const lDeltaETA = Util.Clamp(1000 * lDistance / (Main.cCurrentPosition.coords.speed || 30), 0, 99 * 60 + 99); // MM:SS
-            const lDelay = lDeltaETA - lCountdown; // MM:SS
+            // const lDeltaETA = Util.Clamp(1000 * lDistance / (Main.cCurrentPosition.coords.speed || 0), 0, (99 * 3600 + 59 * 60 + 59) * 1000);
+            const lSpeed = Main.cCurrentPosition.coords.speed || 0;
+            const lDeltaETA = 1000 * lDistance / lSpeed;
+            const lDelay = lDeltaETA - lCountdown;
+            const lETAString = `${Util.DurationStringHHMMSS(lDelay)} (${Util.DurationStringHHMMSS(lDeltaETA)})`;
             return {
-                ETA: `${aBusStop.mBusStop.departure_time} (${Util.DurationStringMMSS(lCountdown)})<br>${Util.DurationStringMMSS(lDelay)} (${Util.DurationStringMMSS(lDeltaETA)})`,
+                Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
                 Name: aBusStop.mBusStop.stop.stop_name,
                 Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`, // For now, this is based on the straight-line distance (instead of route shape distance),
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
-                // ETA: `${Util.DurationStringMMSS(lDeltaETA)} (${Util.DurationStringMMSS(lDelay)})`,
             };
         });
 
         // const lFinalDestinationSpacerRow = { DepartureTime: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
         // const lTimepointSpacerRow = { DepartureTime: "<span class='small-ui'>Next Timepoint:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
         // const lTimepointAbsentRow = { DepartureTime: "", T: "", Name: "", AvgSpeed: "", AdjSpeed: "", ETA: "" };
-        const lSpacerRow = { ETA: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", Distance: "---", AvgSpeed: "---", AdjSpeed: "---" };
+        const lSpacerRow = { Time: "<span class='small-ui'>Next Timepoint & Final Destination:</span>", T: "---", Name: "---", Distance: "---", AvgSpeed: "---", AdjSpeed: "---" };
         lUpcomingStopsTableValues.splice(3, 0, lSpacerRow);
         return lUpcomingStopsTableValues;
     };
@@ -1137,7 +1139,7 @@ namespace DrivingUI {
             const lUpcomingStopsTableValues = UpcomingStopsTableValues(lCurrentCoordinates, lCurrentTime, lRelevantBusStops);
 
             // Populate the bus stops table.
-            const lTableHeaders = ["ETA", "T", "Name", "Distance", "AvgSpeed", "AdjSpeed"];
+            const lTableHeaders = ["Time", "T", "Name", "Distance", "AvgSpeed", "AdjSpeed"];
             UI.PopulateTable("UpcomingStopsTable", lUpcomingStopsTableValues, lTableHeaders, true);
         }
     };
