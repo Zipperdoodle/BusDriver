@@ -105,7 +105,7 @@ namespace Util {
 
 
 
-    export function DurationString(aMilliSeconds: number): string {
+    export function DurationStringHHMMSS(aMilliSeconds: number): string {
         const lAbsDeltaMilliseconds = Math.abs(aMilliSeconds);
         const lHours = Math.floor(lAbsDeltaMilliseconds / (1000 * 60 * 60));
         const lMinutes = Math.floor((lAbsDeltaMilliseconds % (1000 * 60 * 60)) / (1000 * 60));
@@ -115,6 +115,18 @@ namespace Util {
         const lFormattedSeconds = lSeconds.toString().padStart(2, '0')
         const lSign = aMilliSeconds < 0 ? '-' : '+';
         return `${lSign}${lFormattedHours}:${lFormattedMinutes}:${lFormattedSeconds}`;
+    }
+
+
+
+    export function DurationStringMMSS(aMilliSeconds: number): string {
+        const lAbsDeltaMilliseconds = Math.abs(aMilliSeconds);
+        const lMinutes = Math.floor(lAbsDeltaMilliseconds / (1000 * 60));
+        const lSeconds = Math.floor((lAbsDeltaMilliseconds % (1000 * 60)) / 1000);
+        const lFormattedMinutes = lMinutes.toString().padStart(2, '0');
+        const lFormattedSeconds = lSeconds.toString().padStart(2, '0')
+        const lSign = aMilliSeconds < 0 ? '-' : '+';
+        return `${lSign}${lFormattedMinutes}:${lFormattedSeconds}`;
     }
 
 
@@ -776,15 +788,17 @@ namespace NewTripUI {
 
     export function OpenNewTripUI(): void {
         const lNow = Main.CurrentTime();
+        const lStartTime = Util.DatePlusMilliSeconds(lNow, +Main.cUserSettings.NewTripSearchStartTimeOffset * 60 * 1000);
         const lDateString = Util.DateString(lNow);
         const lTimeString = Util.TimeString(lNow);
+        const lStartTimeString = Util.TimeString(lStartTime);
         const lDateInput = document.getElementById('TripSearchDate') as HTMLInputElement;
         const lStartTimeInput = document.getElementById('TripSearchStart') as HTMLInputElement;
         const lSimulatedTimeInput = document.getElementById('SimulatedTimeStart') as HTMLInputElement;
 
         // Set the values of the input elements
         lDateInput.value = lDateString;
-        lStartTimeInput.value = lTimeString;
+        lStartTimeInput.value = lStartTimeString;
         lSimulatedTimeInput.value = lTimeString;
 
         PopulateRoutes();
@@ -1035,26 +1049,23 @@ namespace DrivingUI {
             const lDepartureTimeString = aBusStop.mBusStop.departure_time;
             const lBusStopCoordinates = { mX: aBusStop.mBusStop.stop.geometry.coordinates[0], mY: aBusStop.mBusStop.stop.geometry.coordinates[1] };
             const lDepartureTime = Util.DateFromStrings(lDateString, lDepartureTimeString);
-            const lTimeDifference = Util.DeltaTime(aCurrentTime, lDepartureTime);
-            const lTimeDifferenceString = Util.DurationString(lTimeDifference);
+            const lCountdown = Util.DeltaTime(aCurrentTime, lDepartureTime);
 
-
-            const lCountdown = lTimeDifferenceString; // HH:MM:SS
             const lDistance = Util.GeoDistance(aCurrentCoordinates, lBusStopCoordinates);
-            const lAvgSpeedMin = 3.6 * lDistance / (lTimeDifference / 1000 + 60); // Average Km/h at max allowed delay
-            const lAvgSpeedMax = 3.6 * lDistance / (lTimeDifference / 1000 - 15); // Average Km/h at max allowed lead time
+            const lAvgSpeedMin = 3.6 * lDistance / (lCountdown / 1000 + 60); // Average Km/h at max allowed delay
+            const lAvgSpeedMax = 3.6 * lDistance / (lCountdown / 1000 - 15); // Average Km/h at max allowed lead time
             const lAdjSpeedMin = "---"; // Average min speed adjusted for historic recorded speeds/delays on trip/route
             const lAdjSpeedMax = "---"; // Average max speed adjusted for historic recorded speeds/delays on trip/route
-            const lDeltaETA = 0//Util.DurationString(lDistance * Main.cCurrentPosition.coords.speed); // MM:SS
-            const lDelay = 0; // MM:SS
+            const lDeltaETA = 1000 * lDistance / (Main.cCurrentPosition.coords.speed || 0); // MM:SS
+            const lDelay = lDeltaETA - lCountdown; // MM:SS
             return {
-                DepartureTime: `${aBusStop.mBusStop.departure_time} (${lCountdown})`,
+                DepartureTime: `${aBusStop.mBusStop.departure_time} (${Util.DurationStringMMSS(lCountdown)})`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
                 Name: aBusStop.mBusStop.stop.stop_name,
                 Distance: `${Math.round(lDistance)}m`,
                 AvgSpeed: `${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)}km/h`, // For now, this is based on the straight-line distance (instead of route shape distance),
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
-                ETA: `${lDeltaETA} (${lDelay})`,
+                ETA: `${Util.DurationStringMMSS(lDeltaETA)} (${Util.DurationStringMMSS(lDelay)})`,
             };
         });
 
@@ -1133,6 +1144,8 @@ namespace Main {
         OperatorID: '',
         BusStopDelaySeconds: '30',
         DestinationFilter: '', // Comma-separated list of partial headsign matches.
+        NewTripSearchStartTimeOffset: '-14',
+        NewTripSearchStartTimeRange: '58',
     };
 
     export let cGeolocationWatchID: number;
@@ -1217,13 +1230,21 @@ namespace Main {
     }
 
 
+
+    export function ResetGPS(): void {
+        console.log("Reset GPS button pressed...");
+        StartGeolocationWatch();
+    };
+
+
+
     window.onload = () => {
         UI.ShowPanel('DrivingPanel');
         SettingsUI.LoadSettingsFromStorage();
         SettingsUI.PopulateSettingsTable();
 
         const lEndTimeInput = document.getElementById('TripSearchMinutes') as HTMLInputElement;
-        lEndTimeInput.value = "60";
+        lEndTimeInput.value = cUserSettings.NewTripSearchStartTimeRange;
         StartGeolocationWatch();
     };
 };
