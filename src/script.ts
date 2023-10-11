@@ -1255,9 +1255,9 @@ namespace Main {
         OperatorID: '',
         AtBusStopRange: '25',
         BusStopDelaySeconds: '30',
-        DestinationFilter: '', // Comma-separated list of partial headsign matches.
-        DepartureMaxLead: '-10', // How early you're allowed to leave a timepoint
-        DepartureMaxDelay: '50', // How late you're allowed to leave a timepoint
+        DestinationFilter: '', // Comma-separated list of partial headsign matches for filtering routes
+        DepartureMaxLead: '-15', // How early you're allowed to leave a timepoint
+        DepartureMaxDelay: '60', // How late you're allowed to leave a timepoint
         NewTripSearchStartTimeOffset: '-14',
         NewTripSearchStartTimeRange: '58',
     };
