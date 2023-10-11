@@ -13,8 +13,8 @@
     <div class="large-container">
         <p id="BusHeadsign"></p>
     </div>
-    <svg id="SpeedBar" width="500" height="50">
-        <rect x="0" y="20" rx="5" ry="5" width="500" height="10" style="fill:gray;stroke:black;stroke-width:1;" />
+    <svg id="SpeedBar" width="1000" height="30">
+        <rect x="0" y="5" rx="5" ry="5" width="1000" height="20" style="fill:gray;stroke:black;stroke-width:1;" />
     </svg>
     <div id="DrivingPanel" class="Panel">
         <div class="large-container">
@@ -23,14 +23,14 @@
             </table>
         </div>
         <div class="large-container">
-            <p id="GeolocationValues"></p>
-        </div>
-        <div class="large-container">
             <button id="SettingsButton" onclick="SettingsUI.OpenSettingsUI()">Settings</button>
             <button id="NewTripButton" onclick="NewTripUI.OpenNewTripUI()">New Trip</button>
             <button id="ResetGPS" onclick="Main.ResetGPS()">Reset GPS</button>
             <button id="StopAtAllBusStops" onclick="DrivingUI.StopAtAllBusStops()">Stop All</button>
             <button id="StopAtNextBusStop" onclick="DrivingUI.StopAtNextBusStop()">Stop Next</button>
+        </div>
+        <div class="large-container">
+            <p id="GeolocationValues"></p>
         </div>
     </div>
 

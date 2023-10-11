@@ -1180,10 +1180,10 @@ namespace DrivingUI {
         const lSpeed = (Main.cCurrentPosition.coords.speed || 0) * 3.6;
         DrawPips();
         DrawCurrentSpeed(lSpeed);
-        DrawSpeedMarker(lSpeed, 5, "#90EE90", "CurrentSpeedMarker");
-        DrawSpeedMarker(cMaxSpeed, 3, "red", "MaxSpeedMarker");
-        DrawSpeedMarker(cExactSpeed, 3, "green", "ExactSpeedMarker");
-        DrawSpeedMarker(cMinSpeed, 3, "yellow", "MinSpeedMarker");
+        DrawSpeedMarker(lSpeed, 7, "#90EE90", "CurrentSpeedMarker");
+        DrawSpeedMarker(cMaxSpeed, 5, "red", "MaxSpeedMarker");
+        DrawSpeedMarker(cExactSpeed, 5, "green", "ExactSpeedMarker");
+        DrawSpeedMarker(cMinSpeed, 5, "yellow", "MinSpeedMarker");
     };
 
 
@@ -1191,12 +1191,12 @@ namespace DrivingUI {
     export function DrawPips() {
         const lSvgElement = document.getElementById("SpeedBar");
         for (let lSpeedPip = 0; lSpeedPip <= 100; lSpeedPip += 10) {
-            const lPositionX = (lSpeedPip / 100) * 500;
+            const lPositionX = (lSpeedPip / 100) * 1000;
             const lLineElement = document.createElementNS("http://www.w3.org/2000/svg", "line");
             lLineElement.setAttribute("x1", lPositionX.toString());
-            lLineElement.setAttribute("y1", "15");
+            lLineElement.setAttribute("y1", "0");
             lLineElement.setAttribute("x2", lPositionX.toString());
-            lLineElement.setAttribute("y2", "35");
+            lLineElement.setAttribute("y2", "30");
             lLineElement.setAttribute("stroke", "black");
             lSvgElement?.appendChild(lLineElement);
         }
@@ -1206,7 +1206,7 @@ namespace DrivingUI {
 
     export function DrawCurrentSpeed(aCurrentSpeed: number): void {
         const lSvgElement = document.getElementById("SpeedBar");
-        const lPositionX = (aCurrentSpeed / 100) * 500;
+        const lPositionX = (aCurrentSpeed / 100) * 1000;
 
         const lExistingIndicator = document.getElementById("SpeedIndicator");
         if (lExistingIndicator) lSvgElement?.removeChild(lExistingIndicator);
@@ -1214,11 +1214,11 @@ namespace DrivingUI {
         const lRectangleElement = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         lRectangleElement.setAttribute("id", "SpeedIndicator");
         lRectangleElement.setAttribute("x", "0");
-        lRectangleElement.setAttribute("y", "20");
+        lRectangleElement.setAttribute("y", "5");
         lRectangleElement.setAttribute("rx", "5");
         lRectangleElement.setAttribute("ry", "5");
         lRectangleElement.setAttribute("width", lPositionX.toString());
-        lRectangleElement.setAttribute("height", "10");
+        lRectangleElement.setAttribute("height", "20");
         lRectangleElement.setAttribute("fill", "#90EE90");
         lSvgElement?.appendChild(lRectangleElement);
     };
@@ -1227,7 +1227,7 @@ namespace DrivingUI {
 
     export function DrawSpeedMarker(aSpeed: number, aWidth: number, aColor: string, aID: string): void {
         const lSvgElement = document.getElementById("SpeedBar");
-        const lPositionX = (aSpeed / 100) * 500 - Math.floor(aWidth / 2);
+        const lPositionX = (aSpeed / 100) * 1000 - Math.floor(aWidth / 2);
         const lRectangleElement = document.createElementNS("http://www.w3.org/2000/svg", "rect");
 
         const lExistingMarker = document.getElementById(aID);
@@ -1235,9 +1235,9 @@ namespace DrivingUI {
 
         lRectangleElement.setAttribute("id", aID);
         lRectangleElement.setAttribute("x", lPositionX.toString());
-        lRectangleElement.setAttribute("y", "15");
+        lRectangleElement.setAttribute("y", "0");
         lRectangleElement.setAttribute("width", aWidth.toString());
-        lRectangleElement.setAttribute("height", "20");
+        lRectangleElement.setAttribute("height", "30");
         lRectangleElement.setAttribute("fill", aColor);
         // lRectangleElement.setAttribute("fill", "none");
         // lRectangleElement.setAttribute("stroke", aColor);
