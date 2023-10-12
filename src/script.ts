@@ -543,6 +543,12 @@ namespace UI {
 
 
 
+    export function ToggleDarkMode(): void {
+        document.body.classList.toggle("dark-mode");
+    };
+
+
+
     export function PopulateDropdown(aElementID: string, aKeyValuePairs: [string, string][]): void {
         const lDropdown = document.getElementById(aElementID) as HTMLSelectElement;
         if (lDropdown) {
@@ -1253,7 +1259,8 @@ namespace DrivingUI {
 
     export function AdvanceTripPoint(lCurrentCoordinates: Util.Coordinates): void {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-        if (lDistance > cLastDistanceToTripPoint && cRemainingTripPoints.length > 1) {
+        const lOffset = cRemainingTripPoints[0].mDrivingInfo.mBusStop ? +Main.cUserSettings.AtBusStopRange : 0;
+        if ((lDistance - lOffset) > cLastDistanceToTripPoint && cRemainingTripPoints.length > 1) {
             const lByeTripPoint = cRemainingTripPoints.shift();
             if (lByeTripPoint?.mDrivingInfo.mBusStop === cRemainingBusStops[0]) {
                 cRemainingBusStops.shift();
