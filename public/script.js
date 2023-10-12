@@ -729,7 +729,7 @@ var DrivingUI;
                 Name: aIndex == 0 && DrivingUI.cAtBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
                 Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
-                AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
+                AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,
             };
         });
         // const lFinalDestinationSpacerRow = { DepartureTime: "<span class='small-ui'>Final Destination:</span>", T: "---", Name: "---", AvgSpeed: "---", AdjSpeed: "---", ETA: "---" };
@@ -864,6 +864,7 @@ var DrivingUI;
             GenerateAugmentedBusStops();
             GenerateAugmentedGeometry();
             GenerateTripStopCorrelations();
+            GotoClosestTripPoint();
         }
     }
     DrivingUI.StartTrip = StartTrip;
@@ -875,7 +876,7 @@ var DrivingUI;
             if ((lByeTripPoint === null || lByeTripPoint === void 0 ? void 0 : lByeTripPoint.mDrivingInfo.mBusStop) === DrivingUI.cRemainingBusStops[0]) {
                 DrivingUI.cRemainingBusStops.shift();
             }
-            DrivingUI.cLastDistanceToTripPoint = Infinity;
+            DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
         }
         else {
             DrivingUI.cLastDistanceToTripPoint = lDistance;
@@ -883,6 +884,19 @@ var DrivingUI;
         ;
     }
     DrivingUI.AdvanceTripPoint = AdvanceTripPoint;
+    ;
+    function GotoClosestTripPoint() {
+        const lCurrentCoordinates = { mX: Main.cCurrentPosition.coords.longitude, mY: Main.cCurrentPosition.coords.latitude };
+        const lClosestTripPoint = ClosestTripPoint(DrivingUI.cRemainingTripPoints, lCurrentCoordinates);
+        while (DrivingUI.cRemainingTripPoints[0] !== lClosestTripPoint) {
+            const lByeTripPoint = DrivingUI.cRemainingTripPoints.shift();
+            if ((lByeTripPoint === null || lByeTripPoint === void 0 ? void 0 : lByeTripPoint.mDrivingInfo.mBusStop) === DrivingUI.cRemainingBusStops[0]) {
+                DrivingUI.cRemainingBusStops.shift();
+            }
+            DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+        }
+    }
+    DrivingUI.GotoClosestTripPoint = GotoClosestTripPoint;
     ;
     function AdvanceToClosestTripLine(lCurrentCoordinates) {
         const lLineDistanceFn = Util.PerpendicularDistanceMapper(lCurrentCoordinates);
@@ -909,15 +923,6 @@ var DrivingUI;
         }
     }
     DrivingUI.AdvanceToClosestTripLine = AdvanceToClosestTripLine;
-    function UpdatePosition() {
-        if (DrivingUI.cFetchedTrip) {
-            DrivingUI.cLastDistanceToTripPoint = Infinity;
-            StartTrip();
-            //!@#:TODO Advance to closest trip point
-        }
-    }
-    DrivingUI.UpdatePosition = UpdatePosition;
-    ;
     function Update() {
         const lCurrentTime = Main.CurrentTime();
         const lBusNumber = (DrivingUI.cFetchedRoute === null || DrivingUI.cFetchedRoute === void 0 ? void 0 : DrivingUI.cFetchedRoute.route_short_name) || "999";
@@ -927,7 +932,7 @@ var DrivingUI;
             const lCurrentLocation = Main.cCurrentPosition.coords;
             const lCurrentCoordinates = { mX: lCurrentLocation.longitude, mY: lCurrentLocation.latitude };
             AdvanceTripPoint(lCurrentCoordinates);
-            DrivingUI.cDistanceTravelled = DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere + Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+            DrivingUI.cDistanceTravelled = DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere - DrivingUI.cLastDistanceToTripPoint;
             const lRelevantBusStops = RelevantBusStops();
             //!@#TODO: Ensure lCurrentTime is timestamp of lCurrentCoordinates from GeoLocation:
             const lUpcomingStopsTableValues = UpcomingStopsTableValues(lCurrentCoordinates, lCurrentTime, lRelevantBusStops);

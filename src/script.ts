@@ -1096,8 +1096,8 @@ namespace DrivingUI {
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
                 Name: aIndex == 0 && cAtBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
                 Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
-                AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`, // For now, this is based on the straight-line distance (instead of route shape distance),
-                AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`, //  and this on the route shape distance, until we can upgrade to adjusting for logged trip data.
+                AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
+                AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,
             };
         });
 
@@ -1245,6 +1245,7 @@ namespace DrivingUI {
             GenerateAugmentedBusStops();
             GenerateAugmentedGeometry();
             GenerateTripStopCorrelations();
+            GotoClosestTripPoint();
         }
     };
 
@@ -1257,10 +1258,24 @@ namespace DrivingUI {
             if (lByeTripPoint?.mDrivingInfo.mBusStop === cRemainingBusStops[0]) {
                 cRemainingBusStops.shift();
             }
-            cLastDistanceToTripPoint = Infinity;
+            cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
         } else {
             cLastDistanceToTripPoint = lDistance;
         };
+    };
+
+
+
+    export function GotoClosestTripPoint(): void {
+        const lCurrentCoordinates: Util.Coordinates = { mX: Main.cCurrentPosition.coords.longitude, mY: Main.cCurrentPosition.coords.latitude }
+        const lClosestTripPoint = ClosestTripPoint(cRemainingTripPoints, lCurrentCoordinates);
+        while (cRemainingTripPoints[0] !== lClosestTripPoint) {
+            const lByeTripPoint = cRemainingTripPoints.shift();
+            if (lByeTripPoint?.mDrivingInfo.mBusStop === cRemainingBusStops[0]) {
+                cRemainingBusStops.shift();
+            }
+            cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
+        }
     };
 
 
@@ -1292,15 +1307,6 @@ namespace DrivingUI {
     }
 
 
-    export function UpdatePosition(): void {
-        if (cFetchedTrip) {
-            cLastDistanceToTripPoint = Infinity;
-            StartTrip();
-            //!@#:TODO Advance to closest trip point
-        }
-    };
-
-
 
     export function Update() {
         const lCurrentTime = Main.CurrentTime();
@@ -1312,7 +1318,7 @@ namespace DrivingUI {
             const lCurrentLocation = Main.cCurrentPosition.coords;
             const lCurrentCoordinates: Util.Coordinates = { mX: lCurrentLocation.longitude, mY: lCurrentLocation.latitude };
             AdvanceTripPoint(lCurrentCoordinates);
-            cDistanceTravelled = cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere + Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates)
+            cDistanceTravelled = cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere - cLastDistanceToTripPoint;
             const lRelevantBusStops = RelevantBusStops();
             //!@#TODO: Ensure lCurrentTime is timestamp of lCurrentCoordinates from GeoLocation:
             const lUpcomingStopsTableValues = UpcomingStopsTableValues(lCurrentCoordinates, lCurrentTime, lRelevantBusStops);
