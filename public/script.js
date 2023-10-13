@@ -866,6 +866,7 @@ var DrivingUI;
         if (DrivingUI.cFetchedTrip) {
             DrivingUI.cLastDistanceToTripPoint = Infinity;
             DrivingUI.cDistanceTravelled = 0;
+            DrivingUI.cIncreasedDistanceCount = 0;
             GenerateAugmentedBusStops();
             GenerateAugmentedGeometry();
             GenerateTripStopCorrelations();
@@ -876,25 +877,26 @@ var DrivingUI;
     ;
     function AdvanceTripPoint(lCurrentCoordinates) {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-        if (lDistance > DrivingUI.cLastDistanceToTripPoint + 1 && DrivingUI.cRemainingTripPoints.length > 1) { // Require at least >1m increase since last GPS reading
+        if (lDistance > (DrivingUI.cLastDistanceToTripPoint + +Main.cUserSettings.TripPointHysteresis) && DrivingUI.cRemainingTripPoints.length > 1) {
             DrivingUI.cIncreasedDistanceCount++;
-            if (DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop && DrivingUI.cIncreasedDistanceCount >= +Main.cUserSettings.BusStopStickiness) {
+            if (DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop && DrivingUI.cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
                 DrivingUI.cRemainingBusStops.shift();
-                DrivingUI.cIncreasedDistanceCount = 0;
-            }
-            else if (DrivingUI.cIncreasedDistanceCount >= +Main.cUserSettings.TripPointStickiness) {
-                DrivingUI.cIncreasedDistanceCount = 0;
-            }
-            if (DrivingUI.cIncreasedDistanceCount == 0) {
                 DrivingUI.cRemainingTripPoints.shift();
                 DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+                DrivingUI.cIncreasedDistanceCount = 0;
+                return;
+            }
+            else if (DrivingUI.cIncreasedDistanceCount > (+Main.cUserSettings.TripPointStickiness)) {
+                DrivingUI.cRemainingTripPoints.shift();
+                DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+                DrivingUI.cIncreasedDistanceCount = 0;
+                return;
             }
         }
         else {
             DrivingUI.cIncreasedDistanceCount = 0;
-            DrivingUI.cLastDistanceToTripPoint = lDistance;
         }
-        ;
+        DrivingUI.cLastDistanceToTripPoint = lDistance;
     }
     DrivingUI.AdvanceTripPoint = AdvanceTripPoint;
     ;
@@ -1036,8 +1038,9 @@ var Main;
         DepartureMaxDelay: '60',
         NewTripSearchStartTimeOffset: '-14',
         NewTripSearchStartTimeRange: '58',
-        TripPointStickiness: '2',
-        BusStopStickiness: '5',
+        TripPointStickiness: '0',
+        BusStopStickiness: '0',
+        TripPointHysteresis: '0',
     };
     Main.cRealStartTime = new Date();
     Main.cSimulatedStartTime = Main.cRealStartTime;

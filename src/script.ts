@@ -912,8 +912,8 @@ namespace DrivingUI {
     export let cCurrentEta: number;
     export let cPunctualityString: string;
     export let cLastDistanceToTripPoint: number;
-    export let cIncreasedDistanceCount: number;
     export let cDistanceTravelled: number;
+    export let cIncreasedDistanceCount: number;
 
 
 
@@ -1249,6 +1249,7 @@ namespace DrivingUI {
         if (cFetchedTrip) {
             cLastDistanceToTripPoint = Infinity;
             cDistanceTravelled = 0;
+            cIncreasedDistanceCount = 0;
             GenerateAugmentedBusStops();
             GenerateAugmentedGeometry();
             GenerateTripStopCorrelations();
@@ -1260,22 +1261,24 @@ namespace DrivingUI {
 
     export function AdvanceTripPoint(lCurrentCoordinates: Util.Coordinates): void {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-        if (lDistance > cLastDistanceToTripPoint + 1 && cRemainingTripPoints.length > 1) { // Require at least >1m increase since last GPS reading
+        if (lDistance > (cLastDistanceToTripPoint + +Main.cUserSettings.TripPointHysteresis) && cRemainingTripPoints.length > 1) {
             cIncreasedDistanceCount++;
-            if (cRemainingTripPoints[0].mDrivingInfo.mBusStop && cIncreasedDistanceCount >= +Main.cUserSettings.BusStopStickiness) {
+            if (cRemainingTripPoints[0].mDrivingInfo.mBusStop && cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
                 cRemainingBusStops.shift();
-                cIncreasedDistanceCount = 0;
-            } else if (cIncreasedDistanceCount >= +Main.cUserSettings.TripPointStickiness) {
-                cIncreasedDistanceCount = 0;
-            }
-            if (cIncreasedDistanceCount == 0) {
                 cRemainingTripPoints.shift();
                 cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
+                cIncreasedDistanceCount = 0;
+                return;
+            } else if (cIncreasedDistanceCount > (+Main.cUserSettings.TripPointStickiness)) {
+                cRemainingTripPoints.shift();
+                cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
+                cIncreasedDistanceCount = 0;
+                return;
             }
         } else {
             cIncreasedDistanceCount = 0;
-            cLastDistanceToTripPoint = lDistance;
-        };
+        }
+        cLastDistanceToTripPoint = lDistance;
     };
 
 
@@ -1431,8 +1434,9 @@ namespace Main {
         DepartureMaxDelay: '60', // How late you're allowed to leave a timepoint
         NewTripSearchStartTimeOffset: '-14',
         NewTripSearchStartTimeRange: '58',
-        TripPointStickiness: '2',
-        BusStopStickiness: '5',
+        TripPointStickiness: '0',
+        BusStopStickiness: '0',
+        TripPointHysteresis: '0',
     };
 
     export let cGeolocationWatchID: number;
