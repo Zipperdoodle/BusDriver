@@ -912,6 +912,7 @@ namespace DrivingUI {
     export let cCurrentEta: number;
     export let cPunctualityString: string;
     export let cLastDistanceToTripPoint: number;
+    export let cIncreasedDistanceCount: number;
     export let cDistanceTravelled: number;
 
 
@@ -1259,14 +1260,20 @@ namespace DrivingUI {
 
     export function AdvanceTripPoint(lCurrentCoordinates: Util.Coordinates): void {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-        const lOffset = cRemainingTripPoints[0].mDrivingInfo.mBusStop ? +Main.cUserSettings.AtBusStopRange : 10; // Prevent GPS jitter from messing up
-        if (lDistance > (cLastDistanceToTripPoint + lOffset) && cRemainingTripPoints.length > 1) {
-            const lByeTripPoint = cRemainingTripPoints.shift();
-            if (lByeTripPoint?.mDrivingInfo.mBusStop === cRemainingBusStops[0]) {
+        if (lDistance > cLastDistanceToTripPoint + 1 && cRemainingTripPoints.length > 1) { // Require at least >1m increase since last GPS reading
+            cIncreasedDistanceCount++;
+            if (cRemainingTripPoints[0].mDrivingInfo.mBusStop && cIncreasedDistanceCount >= +Main.cUserSettings.BusStopStickiness) {
                 cRemainingBusStops.shift();
+                cIncreasedDistanceCount = 0;
+            } else if (cIncreasedDistanceCount >= +Main.cUserSettings.TripPointStickiness) {
+                cIncreasedDistanceCount = 0;
             }
-            cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
+            if (cIncreasedDistanceCount == 0) {
+                cRemainingTripPoints.shift();
+                cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
+            }
         } else {
+            cIncreasedDistanceCount = 0;
             cLastDistanceToTripPoint = lDistance;
         };
     };
@@ -1424,6 +1431,8 @@ namespace Main {
         DepartureMaxDelay: '60', // How late you're allowed to leave a timepoint
         NewTripSearchStartTimeOffset: '-14',
         NewTripSearchStartTimeRange: '58',
+        TripPointStickiness: '2',
+        BusStopStickiness: '5',
     };
 
     export let cGeolocationWatchID: number;

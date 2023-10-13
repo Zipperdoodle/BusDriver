@@ -20,6 +20,11 @@ body {
     background-color: #aaaaaa;
 }
 
+button:active {
+    background-color: #444444;
+    transform: scale(0.9);
+}
+
 .large-container {
     margin-bottom: 10px;
 }

@@ -876,15 +876,22 @@ var DrivingUI;
     ;
     function AdvanceTripPoint(lCurrentCoordinates) {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-        const lOffset = DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop ? +Main.cUserSettings.AtBusStopRange : 10; // Prevent GPS jitter from messing up
-        if (lDistance > (DrivingUI.cLastDistanceToTripPoint + lOffset) && DrivingUI.cRemainingTripPoints.length > 1) {
-            const lByeTripPoint = DrivingUI.cRemainingTripPoints.shift();
-            if ((lByeTripPoint === null || lByeTripPoint === void 0 ? void 0 : lByeTripPoint.mDrivingInfo.mBusStop) === DrivingUI.cRemainingBusStops[0]) {
+        if (lDistance > DrivingUI.cLastDistanceToTripPoint + 1 && DrivingUI.cRemainingTripPoints.length > 1) { // Require at least >1m increase since last GPS reading
+            DrivingUI.cIncreasedDistanceCount++;
+            if (DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop && DrivingUI.cIncreasedDistanceCount >= +Main.cUserSettings.BusStopStickiness) {
                 DrivingUI.cRemainingBusStops.shift();
+                DrivingUI.cIncreasedDistanceCount = 0;
             }
-            DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+            else if (DrivingUI.cIncreasedDistanceCount >= +Main.cUserSettings.TripPointStickiness) {
+                DrivingUI.cIncreasedDistanceCount = 0;
+            }
+            if (DrivingUI.cIncreasedDistanceCount == 0) {
+                DrivingUI.cRemainingTripPoints.shift();
+                DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+            }
         }
         else {
+            DrivingUI.cIncreasedDistanceCount = 0;
             DrivingUI.cLastDistanceToTripPoint = lDistance;
         }
         ;
@@ -1029,6 +1036,8 @@ var Main;
         DepartureMaxDelay: '60',
         NewTripSearchStartTimeOffset: '-14',
         NewTripSearchStartTimeRange: '58',
+        TripPointStickiness: '2',
+        BusStopStickiness: '5',
     };
     Main.cRealStartTime = new Date();
     Main.cSimulatedStartTime = Main.cRealStartTime;
