@@ -876,7 +876,7 @@ var DrivingUI;
     ;
     function AdvanceTripPoint(lCurrentCoordinates) {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-        const lOffset = 0; //cRemainingTripPoints[0].mDrivingInfo.mBusStop ? +Main.cUserSettings.AtBusStopRange : 0; //!@#FIXME
+        const lOffset = DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop ? +Main.cUserSettings.AtBusStopRange : 10; // Prevent GPS jitter from messing up
         if (lDistance > (DrivingUI.cLastDistanceToTripPoint + lOffset) && DrivingUI.cRemainingTripPoints.length > 1) {
             const lByeTripPoint = DrivingUI.cRemainingTripPoints.shift();
             if ((lByeTripPoint === null || lByeTripPoint === void 0 ? void 0 : lByeTripPoint.mDrivingInfo.mBusStop) === DrivingUI.cRemainingBusStops[0]) {
