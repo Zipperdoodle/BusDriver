@@ -1161,7 +1161,7 @@ namespace DrivingUI {
             return {
                 mCoordinates: { mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1] },
                 mBusStop: aBusStop,
-                mTripDistanceToHere: 0,
+                mTripDistanceToHere: 0, // To be updated by GenerateTripStopCorrelations()
             };
         });
     };
@@ -1263,7 +1263,7 @@ namespace DrivingUI {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
         if (lDistance > (cLastDistanceToTripPoint + +Main.cUserSettings.TripPointHysteresis) && cRemainingTripPoints.length > 1) {
             cIncreasedDistanceCount++;
-            if (cRemainingTripPoints[0].mDrivingInfo.mBusStop && cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
+            if (cRemainingTripPoints[0].mDrivingInfo.mBusStop === cRemainingBusStops[0] && cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
                 cRemainingBusStops.shift();
                 cRemainingTripPoints.shift();
                 cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);

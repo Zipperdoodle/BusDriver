@@ -783,7 +783,7 @@ var DrivingUI;
             return {
                 mCoordinates: { mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1] },
                 mBusStop: aBusStop,
-                mTripDistanceToHere: 0,
+                mTripDistanceToHere: 0, // To be updated by GenerateTripStopCorrelations()
             };
         });
     }
@@ -879,7 +879,7 @@ var DrivingUI;
         const lDistance = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
         if (lDistance > (DrivingUI.cLastDistanceToTripPoint + +Main.cUserSettings.TripPointHysteresis) && DrivingUI.cRemainingTripPoints.length > 1) {
             DrivingUI.cIncreasedDistanceCount++;
-            if (DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop && DrivingUI.cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
+            if (DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop === DrivingUI.cRemainingBusStops[0] && DrivingUI.cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
                 DrivingUI.cRemainingBusStops.shift();
                 DrivingUI.cRemainingTripPoints.shift();
                 DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
