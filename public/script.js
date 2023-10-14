@@ -877,24 +877,13 @@ var DrivingUI;
     ;
     function AdvanceTripPoint(lCurrentCoordinates) {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-        if (lDistance > (DrivingUI.cLastDistanceToTripPoint + +Main.cUserSettings.TripPointHysteresis) && DrivingUI.cRemainingTripPoints.length > 1) {
-            DrivingUI.cIncreasedDistanceCount++;
-            if (DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop === DrivingUI.cRemainingBusStops[0] && DrivingUI.cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
+        if (lDistance > DrivingUI.cLastDistanceToTripPoint && DrivingUI.cRemainingTripPoints.length > 1) {
+            const lByeTripPoint = DrivingUI.cRemainingTripPoints.shift();
+            if ((lByeTripPoint === null || lByeTripPoint === void 0 ? void 0 : lByeTripPoint.mDrivingInfo.mBusStop) === DrivingUI.cRemainingBusStops[0]) {
                 DrivingUI.cRemainingBusStops.shift();
-                DrivingUI.cRemainingTripPoints.shift();
                 DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-                DrivingUI.cIncreasedDistanceCount = 0;
                 return;
             }
-            else if (DrivingUI.cIncreasedDistanceCount > (+Main.cUserSettings.TripPointStickiness)) {
-                DrivingUI.cRemainingTripPoints.shift();
-                DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-                DrivingUI.cIncreasedDistanceCount = 0;
-                return;
-            }
-        }
-        else {
-            DrivingUI.cIncreasedDistanceCount = 0;
         }
         DrivingUI.cLastDistanceToTripPoint = lDistance;
     }

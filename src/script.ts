@@ -1261,25 +1261,16 @@ namespace DrivingUI {
 
     export function AdvanceTripPoint(lCurrentCoordinates: Util.Coordinates): void {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-        if (lDistance > (cLastDistanceToTripPoint + +Main.cUserSettings.TripPointHysteresis) && cRemainingTripPoints.length > 1) {
-            cIncreasedDistanceCount++;
-            if (cRemainingTripPoints[0].mDrivingInfo.mBusStop === cRemainingBusStops[0] && cIncreasedDistanceCount > (+Main.cUserSettings.BusStopStickiness)) {
+        if (lDistance > cLastDistanceToTripPoint && cRemainingTripPoints.length > 1) {
+            const lByeTripPoint = cRemainingTripPoints.shift();
+            if (lByeTripPoint?.mDrivingInfo.mBusStop === cRemainingBusStops[0]) {
                 cRemainingBusStops.shift();
-                cRemainingTripPoints.shift();
                 cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-                cIncreasedDistanceCount = 0;
                 return;
-            } else if (cIncreasedDistanceCount > (+Main.cUserSettings.TripPointStickiness)) {
-                cRemainingTripPoints.shift();
-                cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-                cIncreasedDistanceCount = 0;
-                return;
-            }
-        } else {
-            cIncreasedDistanceCount = 0;
         }
-        cLastDistanceToTripPoint = lDistance;
-    };
+    }
+    cLastDistanceToTripPoint = lDistance;
+};
 
 
 
