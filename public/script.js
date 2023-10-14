@@ -877,7 +877,7 @@ var DrivingUI;
     ;
     function AdvanceTripPoint(lCurrentCoordinates) {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-        if (lDistance > DrivingUI.cLastDistanceToTripPoint && DrivingUI.cRemainingTripPoints.length > 1) {
+        if (DrivingUI.cRemainingTripPoints.length > 1 && lDistance > DrivingUI.cLastDistanceToTripPoint && lDistance < 25) {
             const lByeTripPoint = DrivingUI.cRemainingTripPoints.shift();
             if ((lByeTripPoint === null || lByeTripPoint === void 0 ? void 0 : lByeTripPoint.mDrivingInfo.mBusStop) === DrivingUI.cRemainingBusStops[0]) {
                 DrivingUI.cRemainingBusStops.shift();
@@ -935,7 +935,9 @@ var DrivingUI;
         if (DrivingUI.cFetchedTrip) {
             const lCurrentLocation = Main.cCurrentPosition.coords;
             const lCurrentCoordinates = { mX: lCurrentLocation.longitude, mY: lCurrentLocation.latitude };
-            AdvanceTripPoint(lCurrentCoordinates);
+            if (lCurrentLocation.speed && lCurrentLocation.speed > 0) {
+                AdvanceTripPoint(lCurrentCoordinates);
+            }
             DrivingUI.cDistanceTravelled = DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere - DrivingUI.cLastDistanceToTripPoint;
             const lRelevantBusStops = RelevantBusStops();
             //!@#TODO: Ensure lCurrentTime is timestamp of lCurrentCoordinates from GeoLocation:

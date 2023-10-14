@@ -1261,7 +1261,7 @@ namespace DrivingUI {
 
     export function AdvanceTripPoint(lCurrentCoordinates: Util.Coordinates): void {
         const lDistance = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-        if (lDistance > cLastDistanceToTripPoint && cRemainingTripPoints.length > 1) {
+        if (cRemainingTripPoints.length > 1 && lDistance > cLastDistanceToTripPoint && lDistance < 25) {
             const lByeTripPoint = cRemainingTripPoints.shift();
             if (lByeTripPoint?.mDrivingInfo.mBusStop === cRemainingBusStops[0]) {
                 cRemainingBusStops.shift();
@@ -1325,7 +1325,9 @@ namespace DrivingUI {
         if (cFetchedTrip) {
             const lCurrentLocation = Main.cCurrentPosition.coords;
             const lCurrentCoordinates: Util.Coordinates = { mX: lCurrentLocation.longitude, mY: lCurrentLocation.latitude };
-            AdvanceTripPoint(lCurrentCoordinates);
+            if(lCurrentLocation.speed && lCurrentLocation.speed > 0) {
+	            AdvanceTripPoint(lCurrentCoordinates);
+            }
             cDistanceTravelled = cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere - cLastDistanceToTripPoint;
             const lRelevantBusStops = RelevantBusStops();
             //!@#TODO: Ensure lCurrentTime is timestamp of lCurrentCoordinates from GeoLocation:
