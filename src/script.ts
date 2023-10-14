@@ -1140,13 +1140,11 @@ namespace DrivingUI {
     export function ClosestTripPoint(aTrip: AugmentedTripGeometry[], aCoordinates: Util.Coordinates): AugmentedTripGeometry {
         let lResult = aTrip[0];
         let lClosestDistance = Infinity;
-        let lClosestIndex = 0;
 
-        aTrip.forEach((aTripPoint, aIndex) => {
+        aTrip.forEach(aTripPoint => {
             const lDistance = Util.GeoDistance(aCoordinates, aTripPoint.mCoordinates);
             if (lDistance < lClosestDistance) {
                 lClosestDistance = lDistance;
-                lClosestIndex = aIndex;
                 lResult = aTripPoint;
             }
         });
@@ -1258,14 +1256,43 @@ namespace DrivingUI {
     };
 
 
+    export function ClosestBusStop(aBusStops: AugmentedBusStop[], aCoordinates: Util.Coordinates): AugmentedBusStop {
+        let lResult = aBusStops[0];
+        let lClosestDistance = Infinity;
 
-    export function AdvanceTripPoint(lCurrentCoordinates: Util.Coordinates): void {
-        const lDistance = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
-        if (cRemainingTripPoints.length > 1 && lDistance > cLastDistanceToTripPoint && lDistance < 25) {
+        aBusStops.forEach(aBusStop => {
+            const lDistance = Util.GeoDistance(aCoordinates, aBusStop.mCoordinates);
+            if (lDistance < lClosestDistance) {
+                lClosestDistance = lDistance;
+                lResult = aBusStop;
+            }
+        });
+
+        return lResult;
+    };
+
+
+
+
+    export function SkipToStop(aBusStop: AugmentedBusStop): void {
+		while(cRemainingBusStops.length > 1 && cRemainingBusStops[0] !== aBusStop) {
+            cRemainingBusStops.shift();
+        }
+        while(cRemainingTripPoints.length > 1 && cRemainingTripPoints[0].mDrivingInfo.mBusStop !== aBusStop) {
+			cRemainingTripPoints.shift();
+        }
+        cLastDistanceToTripPoint = Infinity;
+    };
+
+
+
+    export function AdvanceTripPoint(aCurrentCoordinates: Util.Coordinates): void {
+        const lDistance = Util.GeoDistance(aCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
+        if (cRemainingTripPoints.length > 1 && lDistance > cLastDistanceToTripPoint && lDistance < 500) {
             const lByeTripPoint = cRemainingTripPoints.shift();
             if (lByeTripPoint?.mDrivingInfo.mBusStop === cRemainingBusStops[0]) {
                 cRemainingBusStops.shift();
-                cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
+                cLastDistanceToTripPoint = Util.GeoDistance(aCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
                 return;
         }
     }
@@ -1315,6 +1342,25 @@ namespace DrivingUI {
     }
 
 
+	export function CheckForClosestBusStop(aCurrentCoordinates: Util.Coordinates): void {
+        const lClosestBusStop = ClosestBusStop(cRemainingBusStops, aCurrentCoordinates);
+        if(lClosestBusStop !== cRemainingBusStops[0]) {
+       		const lDistance = Util.GeoDistance(aCurrentCoordinates, lClosestBusStop.mCoordinates);
+        	if(lDistance < 100) {
+                SkipToStop(lClosestBusStop);
+            }
+        }
+    };
+
+
+
+    export function SkipCurrentStop(): void {
+		if(cRemainingBusStops.length > 1) {
+            SkipToStop(cRemainingBusStops[1]);
+        }
+    };
+
+
 
     export function Update() {
         const lCurrentTime = Main.CurrentTime();
@@ -1326,6 +1372,7 @@ namespace DrivingUI {
             const lCurrentLocation = Main.cCurrentPosition.coords;
             const lCurrentCoordinates: Util.Coordinates = { mX: lCurrentLocation.longitude, mY: lCurrentLocation.latitude };
             if(lCurrentLocation.speed && lCurrentLocation.speed > 0) {
+                CheckForClosestBusStop(lCurrentCoordinates);
 	            AdvanceTripPoint(lCurrentCoordinates);
             }
             cDistanceTravelled = cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere - cLastDistanceToTripPoint;

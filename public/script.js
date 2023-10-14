@@ -765,12 +765,10 @@ var DrivingUI;
     function ClosestTripPoint(aTrip, aCoordinates) {
         let lResult = aTrip[0];
         let lClosestDistance = Infinity;
-        let lClosestIndex = 0;
-        aTrip.forEach((aTripPoint, aIndex) => {
+        aTrip.forEach(aTripPoint => {
             const lDistance = Util.GeoDistance(aCoordinates, aTripPoint.mCoordinates);
             if (lDistance < lClosestDistance) {
                 lClosestDistance = lDistance;
-                lClosestIndex = aIndex;
                 lResult = aTripPoint;
             }
         });
@@ -875,13 +873,38 @@ var DrivingUI;
     }
     DrivingUI.StartTrip = StartTrip;
     ;
-    function AdvanceTripPoint(lCurrentCoordinates) {
-        const lDistance = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
-        if (DrivingUI.cRemainingTripPoints.length > 1 && lDistance > DrivingUI.cLastDistanceToTripPoint && lDistance < 25) {
+    function ClosestBusStop(aBusStops, aCoordinates) {
+        let lResult = aBusStops[0];
+        let lClosestDistance = Infinity;
+        aBusStops.forEach(aBusStop => {
+            const lDistance = Util.GeoDistance(aCoordinates, aBusStop.mCoordinates);
+            if (lDistance < lClosestDistance) {
+                lClosestDistance = lDistance;
+                lResult = aBusStop;
+            }
+        });
+        return lResult;
+    }
+    DrivingUI.ClosestBusStop = ClosestBusStop;
+    ;
+    function SkipToStop(aBusStop) {
+        while (DrivingUI.cRemainingBusStops.length > 1 && DrivingUI.cRemainingBusStops[0] !== aBusStop) {
+            DrivingUI.cRemainingBusStops.shift();
+        }
+        while (DrivingUI.cRemainingTripPoints.length > 1 && DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mBusStop !== aBusStop) {
+            DrivingUI.cRemainingTripPoints.shift();
+        }
+        DrivingUI.cLastDistanceToTripPoint = Infinity;
+    }
+    DrivingUI.SkipToStop = SkipToStop;
+    ;
+    function AdvanceTripPoint(aCurrentCoordinates) {
+        const lDistance = Util.GeoDistance(aCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+        if (DrivingUI.cRemainingTripPoints.length > 1 && lDistance > DrivingUI.cLastDistanceToTripPoint && lDistance < 500) {
             const lByeTripPoint = DrivingUI.cRemainingTripPoints.shift();
             if ((lByeTripPoint === null || lByeTripPoint === void 0 ? void 0 : lByeTripPoint.mDrivingInfo.mBusStop) === DrivingUI.cRemainingBusStops[0]) {
                 DrivingUI.cRemainingBusStops.shift();
-                DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(lCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
+                DrivingUI.cLastDistanceToTripPoint = Util.GeoDistance(aCurrentCoordinates, DrivingUI.cRemainingTripPoints[0].mCoordinates);
                 return;
             }
         }
@@ -927,6 +950,24 @@ var DrivingUI;
         }
     }
     DrivingUI.AdvanceToClosestTripLine = AdvanceToClosestTripLine;
+    function CheckForClosestBusStop(aCurrentCoordinates) {
+        const lClosestBusStop = ClosestBusStop(DrivingUI.cRemainingBusStops, aCurrentCoordinates);
+        if (lClosestBusStop !== DrivingUI.cRemainingBusStops[0]) {
+            const lDistance = Util.GeoDistance(aCurrentCoordinates, lClosestBusStop.mCoordinates);
+            if (lDistance < 100) {
+                SkipToStop(lClosestBusStop);
+            }
+        }
+    }
+    DrivingUI.CheckForClosestBusStop = CheckForClosestBusStop;
+    ;
+    function SkipCurrentStop() {
+        if (DrivingUI.cRemainingBusStops.length > 1) {
+            SkipToStop(DrivingUI.cRemainingBusStops[1]);
+        }
+    }
+    DrivingUI.SkipCurrentStop = SkipCurrentStop;
+    ;
     function Update() {
         const lCurrentTime = Main.CurrentTime();
         const lBusNumber = (DrivingUI.cFetchedRoute === null || DrivingUI.cFetchedRoute === void 0 ? void 0 : DrivingUI.cFetchedRoute.route_short_name) || "999";
@@ -936,6 +977,7 @@ var DrivingUI;
             const lCurrentLocation = Main.cCurrentPosition.coords;
             const lCurrentCoordinates = { mX: lCurrentLocation.longitude, mY: lCurrentLocation.latitude };
             if (lCurrentLocation.speed && lCurrentLocation.speed > 0) {
+                CheckForClosestBusStop(lCurrentCoordinates);
                 AdvanceTripPoint(lCurrentCoordinates);
             }
             DrivingUI.cDistanceTravelled = DrivingUI.cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere - DrivingUI.cLastDistanceToTripPoint;
