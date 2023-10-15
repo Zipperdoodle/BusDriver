@@ -555,7 +555,6 @@ var NewTripUI;
 ;
 var DrivingUI;
 (function (DrivingUI) {
-    DrivingUI.cAtBusStop = false;
     /*
         export function GenerateTripStopCorrelations(): void {
             console.log("=== GenerateTripStopCorrelations Begin ===");
@@ -617,38 +616,37 @@ var DrivingUI;
             };
         };
     */
-    function AdvanceToClosestStop(aCurrentGeoLocation) {
-        const lCurrentLocation = { mX: aCurrentGeoLocation.longitude, mY: aCurrentGeoLocation.latitude };
-        const lDistanceComparator = Util.DistanceComparator(lCurrentLocation, Util.GeoDistance);
-        while ((DrivingUI.cRemainingBusStops === null || DrivingUI.cRemainingBusStops === void 0 ? void 0 : DrivingUI.cRemainingBusStops.length) > 1) {
-            const lStopCoordinates0 = DrivingUI.cRemainingBusStops[0].mBusStop.stop.geometry.coordinates;
-            const lStopCoordinates1 = DrivingUI.cRemainingBusStops[1].mBusStop.stop.geometry.coordinates;
-            const lStopLocation0 = { mX: lStopCoordinates0[0], mY: lStopCoordinates0[1] };
-            const lStopLocation1 = { mX: lStopCoordinates1[0], mY: lStopCoordinates1[1] };
-            const lDeltaDistance = lDistanceComparator(lStopLocation0, lStopLocation1);
-            if (lDeltaDistance > 0) {
-                const lByeStop = DrivingUI.cRemainingBusStops.shift();
-                console.log(`Skipping ${lByeStop === null || lByeStop === void 0 ? void 0 : lByeStop.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
-                console.log(`   in favor of ${DrivingUI.cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation1)}`);
-            }
-            else {
-                if (Util.GeoDistance(lCurrentLocation, lStopLocation0) < +Main.cUserSettings.AtBusStopRange) {
-                    DrivingUI.cAtBusStop = true;
-                    console.log(`Approaching stop ${DrivingUI.cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
-                }
-                else {
-                    if (DrivingUI.cAtBusStop) {
-                        DrivingUI.cAtBusStop = false;
-                        const lByeStop = DrivingUI.cRemainingBusStops.shift();
-                        console.log(`Passing stop ${lByeStop === null || lByeStop === void 0 ? void 0 : lByeStop.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+    /*
+        export function AdvanceToClosestStop(aCurrentGeoLocation: GeolocationCoordinates): void {
+            const lCurrentLocation = { mX: aCurrentGeoLocation.longitude, mY: aCurrentGeoLocation.latitude };
+            const lDistanceComparator = Util.DistanceComparator(lCurrentLocation, Util.GeoDistance);
+    
+            while (cRemainingBusStops?.length > 1) {
+                const lStopCoordinates0 = cRemainingBusStops[0].mBusStop.stop.geometry.coordinates;
+                const lStopCoordinates1 = cRemainingBusStops[1].mBusStop.stop.geometry.coordinates;
+                const lStopLocation0: Util.Coordinates = { mX: lStopCoordinates0[0], mY: lStopCoordinates0[1] };
+                const lStopLocation1: Util.Coordinates = { mX: lStopCoordinates1[0], mY: lStopCoordinates1[1] };
+                const lDeltaDistance = lDistanceComparator(lStopLocation0, lStopLocation1);
+    
+                if (lDeltaDistance > 0) {
+                    const lByeStop = cRemainingBusStops.shift();
+                    console.log(`Skipping ${lByeStop?.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                    console.log(`   in favor of ${cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation1)}`);
+                } else {
+                    if (Util.GeoDistance(lCurrentLocation, lStopLocation0) < +Main.cUserSettings.AtBusStopRange) {
+                        cAtBusStop = true;
+                        console.log(`Approaching stop ${cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                    } else {
+                        if (cAtBusStop) {
+                            cAtBusStop = false;
+                            const lByeStop = cRemainingBusStops.shift();
+                            console.log(`Passing stop ${lByeStop?.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                        }
                     }
+                    break;
                 }
-                break;
             }
-        }
-    }
-    DrivingUI.AdvanceToClosestStop = AdvanceToClosestStop;
-    ;
+        };*/
     /*
         export function CheckNextStop(aCurrentCoordinates: Util.Coordinates): number {
             let lDistanceToNextStop = Util.GeoDistance(aCurrentCoordinates, cRemainingBusStops[0]);
@@ -731,7 +729,7 @@ var DrivingUI;
             return {
                 Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
-                Name: aIndex == 0 && DrivingUI.cAtBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
+                Name: aIndex == 0 && DrivingUI.cAtBusStop === aBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
                 Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,

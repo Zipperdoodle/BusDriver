@@ -904,7 +904,8 @@ namespace DrivingUI {
     export let cFetchedTrip: TransitLandAPIClient.Trip;
     export let cRemainingBusStops: AugmentedBusStop[];
     export let cRemainingTripPoints: AugmentedTripGeometry[];
-    export let cAtBusStop = false;
+    export let cAtTripPoint: AugmentedTripGeometry | null;
+    export let cAtBusStop: AugmentedBusStop | null;
     export let cMinSpeed: number;
     export let cMaxSpeed: number;
     export let cExactSpeed: number;
@@ -979,37 +980,37 @@ namespace DrivingUI {
         };
     */
 
-
-    export function AdvanceToClosestStop(aCurrentGeoLocation: GeolocationCoordinates): void {
-        const lCurrentLocation = { mX: aCurrentGeoLocation.longitude, mY: aCurrentGeoLocation.latitude };
-        const lDistanceComparator = Util.DistanceComparator(lCurrentLocation, Util.GeoDistance);
-
-        while (cRemainingBusStops?.length > 1) {
-            const lStopCoordinates0 = cRemainingBusStops[0].mBusStop.stop.geometry.coordinates;
-            const lStopCoordinates1 = cRemainingBusStops[1].mBusStop.stop.geometry.coordinates;
-            const lStopLocation0: Util.Coordinates = { mX: lStopCoordinates0[0], mY: lStopCoordinates0[1] };
-            const lStopLocation1: Util.Coordinates = { mX: lStopCoordinates1[0], mY: lStopCoordinates1[1] };
-            const lDeltaDistance = lDistanceComparator(lStopLocation0, lStopLocation1);
-
-            if (lDeltaDistance > 0) {
-                const lByeStop = cRemainingBusStops.shift();
-                console.log(`Skipping ${lByeStop?.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
-                console.log(`   in favor of ${cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation1)}`);
-            } else {
-                if (Util.GeoDistance(lCurrentLocation, lStopLocation0) < +Main.cUserSettings.AtBusStopRange) {
-                    cAtBusStop = true;
-                    console.log(`Approaching stop ${cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+    /*
+        export function AdvanceToClosestStop(aCurrentGeoLocation: GeolocationCoordinates): void {
+            const lCurrentLocation = { mX: aCurrentGeoLocation.longitude, mY: aCurrentGeoLocation.latitude };
+            const lDistanceComparator = Util.DistanceComparator(lCurrentLocation, Util.GeoDistance);
+    
+            while (cRemainingBusStops?.length > 1) {
+                const lStopCoordinates0 = cRemainingBusStops[0].mBusStop.stop.geometry.coordinates;
+                const lStopCoordinates1 = cRemainingBusStops[1].mBusStop.stop.geometry.coordinates;
+                const lStopLocation0: Util.Coordinates = { mX: lStopCoordinates0[0], mY: lStopCoordinates0[1] };
+                const lStopLocation1: Util.Coordinates = { mX: lStopCoordinates1[0], mY: lStopCoordinates1[1] };
+                const lDeltaDistance = lDistanceComparator(lStopLocation0, lStopLocation1);
+    
+                if (lDeltaDistance > 0) {
+                    const lByeStop = cRemainingBusStops.shift();
+                    console.log(`Skipping ${lByeStop?.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                    console.log(`   in favor of ${cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation1)}`);
                 } else {
-                    if (cAtBusStop) {
-                        cAtBusStop = false;
-                        const lByeStop = cRemainingBusStops.shift();
-                        console.log(`Passing stop ${lByeStop?.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                    if (Util.GeoDistance(lCurrentLocation, lStopLocation0) < +Main.cUserSettings.AtBusStopRange) {
+                        cAtBusStop = true;
+                        console.log(`Approaching stop ${cRemainingBusStops[0].mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                    } else {
+                        if (cAtBusStop) {
+                            cAtBusStop = false;
+                            const lByeStop = cRemainingBusStops.shift();
+                            console.log(`Passing stop ${lByeStop?.mBusStop.stop.stop_name} at distance ${Util.GeoDistance(lCurrentLocation, lStopLocation0)}`);
+                        }
                     }
+                    break;
                 }
-                break;
             }
-        }
-    };
+        };*/
 
 
     /*
@@ -1101,7 +1102,7 @@ namespace DrivingUI {
             return {
                 Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
-                Name: aIndex == 0 && cAtBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
+                Name: aIndex == 0 && cAtBusStop === aBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
                 Distance: lDistance < 1000 ? `${Math.round(lDistance)}m` : `${Math.round(lDistance / 100) / 10}km`,
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
                 AdjSpeed: `${lAdjSpeedMin} - ${lAdjSpeedMax}`,
@@ -1275,11 +1276,11 @@ namespace DrivingUI {
 
 
     export function SkipToStop(aBusStop: AugmentedBusStop): void {
-		while(cRemainingBusStops.length > 1 && cRemainingBusStops[0] !== aBusStop) {
+        while (cRemainingBusStops.length > 1 && cRemainingBusStops[0] !== aBusStop) {
             cRemainingBusStops.shift();
         }
-        while(cRemainingTripPoints.length > 1 && cRemainingTripPoints[0].mDrivingInfo.mBusStop !== aBusStop) {
-			cRemainingTripPoints.shift();
+        while (cRemainingTripPoints.length > 1 && cRemainingTripPoints[0].mDrivingInfo.mBusStop !== aBusStop) {
+            cRemainingTripPoints.shift();
         }
         cLastDistanceToTripPoint = Infinity;
     };
@@ -1294,10 +1295,10 @@ namespace DrivingUI {
                 cRemainingBusStops.shift();
                 cLastDistanceToTripPoint = Util.GeoDistance(aCurrentCoordinates, cRemainingTripPoints[0].mCoordinates);
                 return;
+            }
         }
-    }
-    cLastDistanceToTripPoint = lDistance;
-};
+        cLastDistanceToTripPoint = lDistance;
+    };
 
 
 
@@ -1342,11 +1343,11 @@ namespace DrivingUI {
     }
 
 
-	export function CheckForClosestBusStop(aCurrentCoordinates: Util.Coordinates): void {
+    export function CheckForClosestBusStop(aCurrentCoordinates: Util.Coordinates): void {
         const lClosestBusStop = ClosestBusStop(cRemainingBusStops, aCurrentCoordinates);
-        if(lClosestBusStop !== cRemainingBusStops[0]) {
-       		const lDistance = Util.GeoDistance(aCurrentCoordinates, lClosestBusStop.mCoordinates);
-        	if(lDistance < 100) {
+        if (lClosestBusStop !== cRemainingBusStops[0]) {
+            const lDistance = Util.GeoDistance(aCurrentCoordinates, lClosestBusStop.mCoordinates);
+            if (lDistance < 100) {
                 SkipToStop(lClosestBusStop);
             }
         }
@@ -1355,7 +1356,7 @@ namespace DrivingUI {
 
 
     export function SkipCurrentStop(): void {
-		if(cRemainingBusStops.length > 1) {
+        if (cRemainingBusStops.length > 1) {
             SkipToStop(cRemainingBusStops[1]);
         }
     };
@@ -1371,9 +1372,9 @@ namespace DrivingUI {
         if (cFetchedTrip) {
             const lCurrentLocation = Main.cCurrentPosition.coords;
             const lCurrentCoordinates: Util.Coordinates = { mX: lCurrentLocation.longitude, mY: lCurrentLocation.latitude };
-            if(lCurrentLocation.speed && lCurrentLocation.speed > 0) {
+            if (lCurrentLocation.speed && lCurrentLocation.speed > 0) {
                 CheckForClosestBusStop(lCurrentCoordinates);
-	            AdvanceTripPoint(lCurrentCoordinates);
+                AdvanceTripPoint(lCurrentCoordinates);
             }
             cDistanceTravelled = cRemainingTripPoints[0].mDrivingInfo.mTripDistanceToHere - cLastDistanceToTripPoint;
             const lRelevantBusStops = RelevantBusStops();
