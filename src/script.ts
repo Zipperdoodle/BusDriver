@@ -95,14 +95,41 @@ namespace Util {
     };
 
 
+    
+     export function PointToLineDistanceMapper(aPoint: Coordinates) {
+        return (aLineStart: Coordinates, aLineEnd: Coordinates): number => {
+        const lDistStartToEndSquared: number = 
+          Math.pow(aLineEnd.mX - aLineStart.mX, 2) + Math.pow(aLineEnd.mY - aLineStart.mY, 2);
+      
+        // If the line segment is actually a point, return distance between the points
+        if (lDistStartToEndSquared === 0) return Math.hypot(aPoint.mX - aLineStart.mX, aPoint.mY - aLineStart.mY);
+      
+        // Consider the line extending the segment, parameterized as lineStart + t (lineEnd - lineStart).
+        // We find the projection of "point" onto the line. 
+        // It falls where t = [(point-lineStart) . (lineEnd-lineStart)] / |lineEnd-lineStart|^2
+        let lProjectionFactor: number = ((aPoint.mX - aLineStart.mX) * (aLineEnd.mX - aLineStart.mX) + (aPoint.mY - aLineStart.mY) * (aLineEnd.mY - aLineStart.mY)) / lDistStartToEndSquared;
+        // lProjectionFactor = Math.max(0, Math.min(1, lProjectionFactor)); // We clamp t from [0,1] to handle points outside the segment vw.
+      	lProjectionFactor = Util.Clamp(lProjectionFactor, 0, 1);
+
+        // Projection falls on the segment
+        const lProjection: Coordinates = {
+          mX: aLineStart.mX + lProjectionFactor * (aLineEnd.mX - aLineStart.mX),
+          mY: aLineStart.mY + lProjectionFactor * (aLineEnd.mY - aLineStart.mY),
+        };
+      
+        return Math.hypot(aPoint.mX - lProjection.mX, aPoint.mY - lProjection.mY); // return the distance between the point and its projection
+      };
+    };
+      
+    
 
     export function PerpendicularDistanceMapper(aPoint: Coordinates) {
-        return (aLineStart: Coordinates, aLineEnd: Coordinates) => {
+        return (aLineStart: Coordinates, aLineEnd: Coordinates): number => {
             const lSlope = (aLineEnd.mY - aLineStart.mY) / (aLineEnd.mX - aLineStart.mX);
             const lYIntercept = aLineStart.mY - lSlope * aLineStart.mX;
             return Math.abs(lSlope * aPoint.mX - aPoint.mY + lYIntercept) / Math.sqrt(lSlope * lSlope + 1);;
-        }
-    }
+        };
+    };
 
 
 
@@ -1052,7 +1079,7 @@ namespace DrivingUI {
     export function GenerateTripStopCorrelations(): void {
         let lTripPointIndex = 0;
         cRemainingBusStops.forEach((aBusStop, aBusStopIndex) => {
-            const lLineDistanceFn = Util.PerpendicularDistanceMapper(aBusStop.mCoordinates);
+            const lLineDistanceFn = Util.PointToLineDistanceMapper(aBusStop.mCoordinates);
             let lClosestLineStartIndex = 0;
             let lClosestDistance = Infinity;
             let lIndex = lTripPointIndex;
@@ -1154,7 +1181,7 @@ namespace DrivingUI {
 
 
     export function AdvanceToClosestTripLine(lCurrentCoordinates: Util.Coordinates): void {
-        const lLineDistanceFn = Util.PerpendicularDistanceMapper(lCurrentCoordinates);
+        const lLineDistanceFn = Util.PointToLineDistanceMapper(lCurrentCoordinates);
         let lClosestLineStartIndex = 0;
         let lClosestDistance = Infinity;
         let lTripPointIndex = 0;
