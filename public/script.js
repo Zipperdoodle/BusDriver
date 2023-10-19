@@ -972,7 +972,7 @@ var Main;
             const lDerivativesString = `Spd: ${lSpeed}km/h, Heading: ${lHeading}deg`;
             const lAccuracyString = `Acc: ${lCoordinates.accuracy || "-"}m, AltAcc: ${lCoordinates.altitudeAccuracy || "-"}m`;
             const lGeolocationTimestampString = `${Util.TimeString(new Date(Main.cCurrentPosition.timestamp))}`;
-            lGeolocationField.innerHTML = `${lCoordinatesString} | ${lDerivativesString}<br>${lAccuracyString} (${lGeolocationTimestampString} - ${Main.cPositionUpdateCounter})`;
+            lGeolocationField.innerHTML = `${lDerivativesString} | ${lCoordinatesString}<br>${lAccuracyString} (${lGeolocationTimestampString} - ${Main.cPositionUpdateCounter})`;
             DrivingUI.Update();
         }
         ;
