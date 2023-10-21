@@ -25,11 +25,11 @@ namespace Util {
     // and the distance between them needs to be subtracted from the total travel distance to the stop,
     // else the closest point is ahead of the stop and the distance to the stop needs to be added.
     export function Angle(aOrigin: Coordinates, aFrom: Coordinates, aTo: Coordinates): number {
-        const lLineA = {
+        const lLineA: Coordinates = {
             mX: aOrigin.mX - aFrom.mX,
             mY: aOrigin.mY - aFrom.mY
         };
-        const lLineB = {
+        const lLineB: Coordinates = {
             mX: aOrigin.mX - aTo.mX,
             mY: aOrigin.mY - aTo.mY
         };
