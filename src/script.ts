@@ -52,7 +52,7 @@ namespace Util {
         const lSinLatitudeSquared: number = Math.sin(lLatitudeRadians) ** 2;
         const lAverageRadius: number = Math.sqrt((lEquatorialRadius ** 2 * lCosLatitudeSquared + lPolarRadius ** 2 * lSinLatitudeSquared) / 2);
         return 2 * Math.PI * lAverageRadius;
-    }
+    };
 
 
 
@@ -95,33 +95,33 @@ namespace Util {
     };
 
 
-    
-     export function PointToLineDistanceMapper(aPoint: Coordinates) {
-        return (aLineStart: Coordinates, aLineEnd: Coordinates): number => {
-        const lDistStartToEndSquared: number = 
-          Math.pow(aLineEnd.mX - aLineStart.mX, 2) + Math.pow(aLineEnd.mY - aLineStart.mY, 2);
-      
-        // If the line segment is actually a point, return distance between the points
-        if (lDistStartToEndSquared === 0) return Math.hypot(aPoint.mX - aLineStart.mX, aPoint.mY - aLineStart.mY);
-      
-        // Consider the line extending the segment, parameterized as lineStart + t (lineEnd - lineStart).
-        // We find the projection of "point" onto the line. 
-        // It falls where t = [(point-lineStart) . (lineEnd-lineStart)] / |lineEnd-lineStart|^2
-        let lProjectionFactor: number = ((aPoint.mX - aLineStart.mX) * (aLineEnd.mX - aLineStart.mX) + (aPoint.mY - aLineStart.mY) * (aLineEnd.mY - aLineStart.mY)) / lDistStartToEndSquared;
-        // lProjectionFactor = Math.max(0, Math.min(1, lProjectionFactor)); // We clamp t from [0,1] to handle points outside the segment vw.
-      	lProjectionFactor = Util.Clamp(lProjectionFactor, 0, 1);
 
-        // Projection falls on the segment
-        const lProjection: Coordinates = {
-          mX: aLineStart.mX + lProjectionFactor * (aLineEnd.mX - aLineStart.mX),
-          mY: aLineStart.mY + lProjectionFactor * (aLineEnd.mY - aLineStart.mY),
+    export function PointToLineDistanceMapper(aPoint: Coordinates) {
+        return (aLineStart: Coordinates, aLineEnd: Coordinates): number => {
+            const lDistStartToEndSquared: number =
+                Math.pow(aLineEnd.mX - aLineStart.mX, 2) + Math.pow(aLineEnd.mY - aLineStart.mY, 2);
+
+            // If the line segment is actually a point, return distance between the points
+            if (lDistStartToEndSquared === 0) return Math.hypot(aPoint.mX - aLineStart.mX, aPoint.mY - aLineStart.mY);
+
+            // Consider the line extending the segment, parameterized as lineStart + t (lineEnd - lineStart).
+            // We find the projection of "point" onto the line. 
+            // It falls where t = [(point-lineStart) . (lineEnd-lineStart)] / |lineEnd-lineStart|^2
+            let lProjectionFactor: number = ((aPoint.mX - aLineStart.mX) * (aLineEnd.mX - aLineStart.mX) + (aPoint.mY - aLineStart.mY) * (aLineEnd.mY - aLineStart.mY)) / lDistStartToEndSquared;
+            // lProjectionFactor = Math.max(0, Math.min(1, lProjectionFactor)); // We clamp t from [0,1] to handle points outside the segment vw.
+            lProjectionFactor = Util.Clamp(lProjectionFactor, 0, 1);
+
+            // Projection falls on the segment
+            const lProjection: Coordinates = {
+                mX: aLineStart.mX + lProjectionFactor * (aLineEnd.mX - aLineStart.mX),
+                mY: aLineStart.mY + lProjectionFactor * (aLineEnd.mY - aLineStart.mY),
+            };
+
+            return Math.hypot(aPoint.mX - lProjection.mX, aPoint.mY - lProjection.mY); // return the distance between the point and its projection
         };
-      
-        return Math.hypot(aPoint.mX - lProjection.mX, aPoint.mY - lProjection.mY); // return the distance between the point and its projection
-      };
     };
-      
-    
+
+
 
     export function PerpendicularDistanceMapper(aPoint: Coordinates) {
         return (aLineStart: Coordinates, aLineEnd: Coordinates): number => {
@@ -149,7 +149,7 @@ namespace Util {
         const lFormattedSeconds = lSeconds.toString().padStart(2, '0')
         const lSign = aMilliSeconds < 0 ? '-' : '+';
         return `${lSign}${lFormattedHours}:${lFormattedMinutes}:${lFormattedSeconds}`;
-    }
+    };
 
 
 
@@ -161,7 +161,7 @@ namespace Util {
         const lFormattedSeconds = lSeconds.toString().padStart(2, '0')
         const lSign = aMilliSeconds < 0 ? '-' : '+';
         return `${lSign}${lFormattedMinutes}:${lFormattedSeconds}`;
-    }
+    };
 
 
 
@@ -212,11 +212,8 @@ namespace Fetch {
 
         if (aQueryParams) {
             Object.keys(aQueryParams).forEach(aKey => {
-                const lValue = aQueryParams[aKey];
-                if (lValue !== undefined) {
-                    // lUrl.searchParams.append(encodeURIComponent(aKey), encodeURIComponent(lValue.toString()));
-                    lUrl.searchParams.append(aKey, lValue.toString());
-                }
+                // lUrl.searchParams.append(encodeURIComponent(aKey), encodeURIComponent(lValue.toString()));
+                lUrl.searchParams.append(aKey, aQueryParams[aKey].toString());
             });
         }
 
@@ -225,7 +222,7 @@ namespace Fetch {
 
 
 
-    export async function FetchedData<T>(aApiEndpoint: string, aHeaders: Record<string, string>, aQueryParams?: QueryParams): Promise<FetchResult<T>> {
+    export async function FetchData<T>(aApiEndpoint: string, aHeaders: Record<string, string>, aQueryParams?: QueryParams): Promise<FetchResult<T>> {
         try {
             const lUrlQueryString = UrlQueryString(aApiEndpoint, aQueryParams);
             console.log(`Fetching: ${lUrlQueryString}`);
@@ -475,22 +472,21 @@ namespace TransitLandAPIClient {
 
 
 
-    export async function FetchedTransitLandDataPage(aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult {
+    export async function FetchTransitLandDataPage(aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult {
         const lHeaders = { 'Content-Type': 'application/json', 'apikey': aApiKey };
-        const lResponse = await Fetch.FetchedData<TransitLandData>(aApiEndpoint, lHeaders, aQueryParams);
-        // lResponse.mData = lResponse.mData || {};
+        const lResponse = await Fetch.FetchData<TransitLandData>(aApiEndpoint, lHeaders, aQueryParams);
         return lResponse;
     };
 
 
 
-    export async function FetchedTransitLandData<K extends TransitLandArrayKey>(aArrayKey: K, aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult {
+    export async function FetchTransitLandData<K extends TransitLandArrayKey>(aArrayKey: K, aApiKey: string, aApiEndpoint: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult {
         const lData: TransitLandData = {};
         let lResponse: Fetch.FetchResult<TransitLandData> | null = null;
         let lLinkToNextSet: string | undefined = aApiEndpoint;
 
         do {
-            lResponse = await FetchedTransitLandDataPage(aApiKey, lLinkToNextSet, aQueryParams);
+            lResponse = await FetchTransitLandDataPage(aApiKey, lLinkToNextSet, aQueryParams);
             lData[aArrayKey] = [...(lData[aArrayKey] || []), ...(lResponse.mData?.[aArrayKey] || [])] as TransitLandData[K]; // Type assertion to make up for failure to infer.
             lLinkToNextSet = lResponse.mData?.meta?.next;
             aQueryParams = undefined;
@@ -508,41 +504,41 @@ namespace TransitLandAPIClient {
     export function Client(aApiKey: string, aApiBase?: string) {
         const lApiBase = aApiBase || cDefaultAPIBase;
         return {
-            FetchedOperators: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
+            FetchOperators: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/operators`;
-                return await FetchedTransitLandData("operators", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("operators", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedOperator: async (aOperatorID: string): AsyncTransitLandFetchResult => {
+            FetchOperator: async (aOperatorID: string): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/operators/${aOperatorID}`;
-                return await FetchedTransitLandData("operators", aApiKey, lApiEndpoint);
+                return await FetchTransitLandData("operators", aApiKey, lApiEndpoint);
             },
-            FetchedRoutes: async (aOperatorID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
+            FetchRoutes: async (aOperatorID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes`;
-                return await FetchedTransitLandData("routes", aApiKey, lApiEndpoint, { operator_onestop_id: aOperatorID, ...aQueryParams });
+                return await FetchTransitLandData("routes", aApiKey, lApiEndpoint, { operator_onestop_id: aOperatorID, ...aQueryParams });
             },
-            FetchedRoute: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
+            FetchRoute: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}`;
-                return await FetchedTransitLandData("routes", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("routes", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedTrips: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
+            FetchTrips: async (aRouteID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}/trips`;
-                return await FetchedTransitLandData("trips", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("trips", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedTrip: async (aRouteID: string, aTripID: string): AsyncTransitLandFetchResult => {
+            FetchTrip: async (aRouteID: string, aTripID: string): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}/trips/${aTripID}`;
-                return await FetchedTransitLandData("trips", aApiKey, lApiEndpoint);
+                return await FetchTransitLandData("trips", aApiKey, lApiEndpoint);
             },
-            FetchedBusStops: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
+            FetchBusStops: async (aQueryParams: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops`;
-                return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedBusStop: async (aBusStopID: string): AsyncTransitLandFetchResult => {
+            FetchBusStop: async (aBusStopID: string): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops/${aBusStopID}`;
-                return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint);
+                return await FetchTransitLandData("stops", aApiKey, lApiEndpoint);
             },
-            FetchedDepartures: async (aStopID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
+            FetchDepartures: async (aStopID: string, aQueryParams?: Fetch.QueryParams): AsyncTransitLandFetchResult => {
                 const lApiEndpoint = `${lApiBase}/stops/${aStopID}/departures`;
-                return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
             },
         };
     };
@@ -589,7 +585,7 @@ namespace UI {
                 lDropdown.add(lOptionElement);
             });
         }
-    }
+    };
 
 
 
@@ -726,7 +722,7 @@ namespace NewTripUI {
         const lOperatorID = Main.cUserSettings.OperatorID.trim();
 
         if (lTransitLand && lOperatorID.length > 0) {
-            const lFetchResult = await lTransitLand.FetchedRoutes(lOperatorID);
+            const lFetchResult = await lTransitLand.FetchRoutes(lOperatorID);
 
             if (lFetchResult.mData?.routes) {
                 localStorage.setItem(`RouteList_${lOperatorID}`, JSON.stringify(lFetchResult.mData.routes));
@@ -746,7 +742,7 @@ namespace NewTripUI {
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
             const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
             const lRouteSubset = DrivingUI.cFetchedRoutes[lRouteIndex];
-            const lFetchResult = await lTransitLand.FetchedRoute(lRouteSubset.onestop_id);
+            const lFetchResult = await lTransitLand.FetchRoute(lRouteSubset.onestop_id);
 
             if (lFetchResult.mData?.routes) {
                 const lRoute = lFetchResult.mData?.routes[0];
@@ -766,7 +762,7 @@ namespace NewTripUI {
 
 
 
-    export function TripListChanged() {
+    export function TripListChanged(): void {
         const lTripList = document.getElementById('TripList') as HTMLSelectElement;
         const lTripIndex = lTripList.selectedIndex;
 
@@ -797,7 +793,7 @@ namespace NewTripUI {
                 end_time: Util.TimeString(lEndTime)
             };
             console.log(lQueryParams);
-            const lFetchResult = await lTransitLand.FetchedDepartures(lBusStopID, lQueryParams);
+            const lFetchResult = await lTransitLand.FetchDepartures(lBusStopID, lQueryParams);
 
             if (lFetchResult.mData?.stops) {
                 const lDepartures = lFetchResult.mData?.stops[0].departures;
@@ -869,7 +865,7 @@ namespace NewTripUI {
             const lRouteID = lDeparture.trip.route?.onestop_id;
 
             if (lRouteID && DrivingUI.cFetchedTrip?.id != lTripID) {
-                const lFetchResult = await lTransitLand.FetchedTrip(lRouteID, lTripID.toString());
+                const lFetchResult = await lTransitLand.FetchTrip(lRouteID, lTripID.toString());
                 if (lFetchResult.mData?.trips) {
                     DrivingUI.cFetchedTrip = lFetchResult.mData.trips[0];
                 }
@@ -1045,19 +1041,17 @@ namespace DrivingUI {
 
 
 
-    export function GenerateAugmentedBusStops() {
-        cRemainingBusStops = cFetchedTrip.stop_times.map(aBusStop => {
-            return {
-                mCoordinates: { mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1] },
-                mBusStop: aBusStop,
-                mTripDistanceToHere: 0, // To be updated by GenerateTripStopCorrelations()
-            };
-        });
+    export function GenerateAugmentedBusStops(): void {
+        cRemainingBusStops = cFetchedTrip.stop_times.map(aBusStop => ({
+            mCoordinates: { mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1] },
+            mBusStop: aBusStop,
+            mTripDistanceToHere: 0, // To be calculated by GenerateTripStopCorrelations()
+        }));
     };
 
 
 
-    export function GenerateAugmentedGeometry() {
+    export function GenerateAugmentedGeometry(): void {
         let lTripDistance = 0;
         cRemainingTripPoints = cFetchedTrip.shape.geometry.coordinates.map((aTripPoint, aIndex, aArray) => {
             const lCurrentPoint = { mX: aTripPoint[0], mY: aTripPoint[1] };
@@ -1204,7 +1198,7 @@ namespace DrivingUI {
             }
             lClosestLineStartIndex--;
         }
-    }
+    };
 
 
     export function CheckForClosestBusStop(aCurrentCoordinates: Util.Coordinates): void {
@@ -1227,7 +1221,7 @@ namespace DrivingUI {
 
 
 
-    export function Update() {
+    export function Update(): void {
         const lCurrentTime = Main.CurrentTime();
         const lBusNumber = cFetchedRoute?.route_short_name || "999";
         const lTripHeadsign = cFetchedTrip?.trip_headsign || "No Service";
@@ -1268,7 +1262,7 @@ namespace DrivingUI {
 
 
 
-    export function DrawPips(aSVGElementID: string) {
+    export function DrawPips(aSVGElementID: string): void {
         const lSvgElement = document.getElementById(aSVGElementID);
         for (let lSpeedPip = 0; lSpeedPip <= 100; lSpeedPip += 10) {
             const lPositionX = (lSpeedPip / 100) * 1000;

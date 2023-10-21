@@ -39,6 +39,7 @@ var Util;
         return 2 * Math.PI * lAverageRadius;
     }
     Util.CircumferenceAtLatitude = CircumferenceAtLatitude;
+    ;
     function GeoDistance(aPoint1, aPoint2) {
         // Calculates the distance in meters between two latitude/longitude geolocation coordinates.
         // X (vertical) is longitude, Y (vertical) is latitude.
@@ -123,6 +124,7 @@ var Util;
         return `${lSign}${lFormattedHours}:${lFormattedMinutes}:${lFormattedSeconds}`;
     }
     Util.DurationStringHHMMSS = DurationStringHHMMSS;
+    ;
     function DurationStringMMSS(aMilliSeconds) {
         const lAbsDeltaMilliseconds = Math.abs(aMilliSeconds);
         const lMinutes = Math.floor(lAbsDeltaMilliseconds / (1000 * 60));
@@ -133,6 +135,7 @@ var Util;
         return `${lSign}${lFormattedMinutes}:${lFormattedSeconds}`;
     }
     Util.DurationStringMMSS = DurationStringMMSS;
+    ;
     function DatePlusMilliSeconds(aDate, aMilliSeconds) {
         return new Date(aDate.getTime() + aMilliSeconds);
     }
@@ -161,18 +164,15 @@ var Fetch;
         const lUrl = new URL(aApiEndpoint);
         if (aQueryParams) {
             Object.keys(aQueryParams).forEach(aKey => {
-                const lValue = aQueryParams[aKey];
-                if (lValue !== undefined) {
-                    // lUrl.searchParams.append(encodeURIComponent(aKey), encodeURIComponent(lValue.toString()));
-                    lUrl.searchParams.append(aKey, lValue.toString());
-                }
+                // lUrl.searchParams.append(encodeURIComponent(aKey), encodeURIComponent(lValue.toString()));
+                lUrl.searchParams.append(aKey, aQueryParams[aKey].toString());
             });
         }
         return lUrl.toString();
     }
     Fetch.UrlQueryString = UrlQueryString;
     ;
-    async function FetchedData(aApiEndpoint, aHeaders, aQueryParams) {
+    async function FetchData(aApiEndpoint, aHeaders, aQueryParams) {
         try {
             const lUrlQueryString = UrlQueryString(aApiEndpoint, aQueryParams);
             console.log(`Fetching: ${lUrlQueryString}`);
@@ -188,28 +188,27 @@ var Fetch;
             return { mResponseOk: false, mResponseStatus: -1, mErrorMessage: lErrorMessage };
         }
     }
-    Fetch.FetchedData = FetchedData;
+    Fetch.FetchData = FetchData;
     ;
 })(Fetch || (Fetch = {}));
 ;
 var TransitLandAPIClient;
 (function (TransitLandAPIClient) {
     TransitLandAPIClient.cDefaultAPIBase = "https://transit.land/api/v2/rest";
-    async function FetchedTransitLandDataPage(aApiKey, aApiEndpoint, aQueryParams) {
+    async function FetchTransitLandDataPage(aApiKey, aApiEndpoint, aQueryParams) {
         const lHeaders = { 'Content-Type': 'application/json', 'apikey': aApiKey };
-        const lResponse = await Fetch.FetchedData(aApiEndpoint, lHeaders, aQueryParams);
-        // lResponse.mData = lResponse.mData || {};
+        const lResponse = await Fetch.FetchData(aApiEndpoint, lHeaders, aQueryParams);
         return lResponse;
     }
-    TransitLandAPIClient.FetchedTransitLandDataPage = FetchedTransitLandDataPage;
+    TransitLandAPIClient.FetchTransitLandDataPage = FetchTransitLandDataPage;
     ;
-    async function FetchedTransitLandData(aArrayKey, aApiKey, aApiEndpoint, aQueryParams) {
+    async function FetchTransitLandData(aArrayKey, aApiKey, aApiEndpoint, aQueryParams) {
         var _a, _b, _c;
         const lData = {};
         let lResponse = null;
         let lLinkToNextSet = aApiEndpoint;
         do {
-            lResponse = await FetchedTransitLandDataPage(aApiKey, lLinkToNextSet, aQueryParams);
+            lResponse = await FetchTransitLandDataPage(aApiKey, lLinkToNextSet, aQueryParams);
             lData[aArrayKey] = [...(lData[aArrayKey] || []), ...(((_a = lResponse.mData) === null || _a === void 0 ? void 0 : _a[aArrayKey]) || [])]; // Type assertion to make up for failure to infer.
             lLinkToNextSet = (_c = (_b = lResponse.mData) === null || _b === void 0 ? void 0 : _b.meta) === null || _c === void 0 ? void 0 : _c.next;
             aQueryParams = undefined;
@@ -219,46 +218,46 @@ var TransitLandAPIClient;
         }
         return lResponse;
     }
-    TransitLandAPIClient.FetchedTransitLandData = FetchedTransitLandData;
+    TransitLandAPIClient.FetchTransitLandData = FetchTransitLandData;
     ;
     function Client(aApiKey, aApiBase) {
         const lApiBase = aApiBase || TransitLandAPIClient.cDefaultAPIBase;
         return {
-            FetchedOperators: async (aQueryParams) => {
+            FetchOperators: async (aQueryParams) => {
                 const lApiEndpoint = `${lApiBase}/operators`;
-                return await FetchedTransitLandData("operators", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("operators", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedOperator: async (aOperatorID) => {
+            FetchOperator: async (aOperatorID) => {
                 const lApiEndpoint = `${lApiBase}/operators/${aOperatorID}`;
-                return await FetchedTransitLandData("operators", aApiKey, lApiEndpoint);
+                return await FetchTransitLandData("operators", aApiKey, lApiEndpoint);
             },
-            FetchedRoutes: async (aOperatorID, aQueryParams) => {
+            FetchRoutes: async (aOperatorID, aQueryParams) => {
                 const lApiEndpoint = `${lApiBase}/routes`;
-                return await FetchedTransitLandData("routes", aApiKey, lApiEndpoint, { operator_onestop_id: aOperatorID, ...aQueryParams });
+                return await FetchTransitLandData("routes", aApiKey, lApiEndpoint, { operator_onestop_id: aOperatorID, ...aQueryParams });
             },
-            FetchedRoute: async (aRouteID, aQueryParams) => {
+            FetchRoute: async (aRouteID, aQueryParams) => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}`;
-                return await FetchedTransitLandData("routes", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("routes", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedTrips: async (aRouteID, aQueryParams) => {
+            FetchTrips: async (aRouteID, aQueryParams) => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}/trips`;
-                return await FetchedTransitLandData("trips", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("trips", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedTrip: async (aRouteID, aTripID) => {
+            FetchTrip: async (aRouteID, aTripID) => {
                 const lApiEndpoint = `${lApiBase}/routes/${aRouteID}/trips/${aTripID}`;
-                return await FetchedTransitLandData("trips", aApiKey, lApiEndpoint);
+                return await FetchTransitLandData("trips", aApiKey, lApiEndpoint);
             },
-            FetchedBusStops: async (aQueryParams) => {
+            FetchBusStops: async (aQueryParams) => {
                 const lApiEndpoint = `${lApiBase}/stops`;
-                return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
             },
-            FetchedBusStop: async (aBusStopID) => {
+            FetchBusStop: async (aBusStopID) => {
                 const lApiEndpoint = `${lApiBase}/stops/${aBusStopID}`;
-                return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint);
+                return await FetchTransitLandData("stops", aApiKey, lApiEndpoint);
             },
-            FetchedDepartures: async (aStopID, aQueryParams) => {
+            FetchDepartures: async (aStopID, aQueryParams) => {
                 const lApiEndpoint = `${lApiBase}/stops/${aStopID}/departures`;
-                return await FetchedTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
+                return await FetchTransitLandData("stops", aApiKey, lApiEndpoint, aQueryParams);
             },
         };
     }
@@ -303,6 +302,7 @@ var UI;
         }
     }
     UI.PopulateDropdown = PopulateDropdown;
+    ;
     function PopulateTable(aTableID, aData, aHeaders, aPopulateHeaders = true) {
         const lTable = document.getElementById(aTableID);
         if (lTable) {
@@ -420,7 +420,7 @@ var NewTripUI;
         const lTransitLand = Main.TransitLand();
         const lOperatorID = Main.cUserSettings.OperatorID.trim();
         if (lTransitLand && lOperatorID.length > 0) {
-            const lFetchResult = await lTransitLand.FetchedRoutes(lOperatorID);
+            const lFetchResult = await lTransitLand.FetchRoutes(lOperatorID);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
                 localStorage.setItem(`RouteList_${lOperatorID}`, JSON.stringify(lFetchResult.mData.routes));
                 PopulateRoutes();
@@ -438,7 +438,7 @@ var NewTripUI;
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
             const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
             const lRouteSubset = DrivingUI.cFetchedRoutes[lRouteIndex];
-            const lFetchResult = await lTransitLand.FetchedRoute(lRouteSubset.onestop_id);
+            const lFetchResult = await lTransitLand.FetchRoute(lRouteSubset.onestop_id);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
                 const lRoute = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.routes[0];
                 const lBusStopLocations = lRoute.route_stops.map(aBusStop => ({ mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1], mObject: aBusStop.stop }));
@@ -481,7 +481,7 @@ var NewTripUI;
                 end_time: Util.TimeString(lEndTime)
             };
             console.log(lQueryParams);
-            const lFetchResult = await lTransitLand.FetchedDepartures(lBusStopID, lQueryParams);
+            const lFetchResult = await lTransitLand.FetchDepartures(lBusStopID, lQueryParams);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.stops) {
                 const lDepartures = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.stops[0].departures;
                 if (lDepartures) {
@@ -542,7 +542,7 @@ var NewTripUI;
             const lTripID = lDeparture.trip.id;
             const lRouteID = (_a = lDeparture.trip.route) === null || _a === void 0 ? void 0 : _a.onestop_id;
             if (lRouteID && ((_b = DrivingUI.cFetchedTrip) === null || _b === void 0 ? void 0 : _b.id) != lTripID) {
-                const lFetchResult = await lTransitLand.FetchedTrip(lRouteID, lTripID.toString());
+                const lFetchResult = await lTransitLand.FetchTrip(lRouteID, lTripID.toString());
                 if ((_c = lFetchResult.mData) === null || _c === void 0 ? void 0 : _c.trips) {
                     DrivingUI.cFetchedTrip = lFetchResult.mData.trips[0];
                 }
@@ -666,13 +666,11 @@ var DrivingUI;
     DrivingUI.ClosestTripPoint = ClosestTripPoint;
     ;
     function GenerateAugmentedBusStops() {
-        DrivingUI.cRemainingBusStops = DrivingUI.cFetchedTrip.stop_times.map(aBusStop => {
-            return {
-                mCoordinates: { mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1] },
-                mBusStop: aBusStop,
-                mTripDistanceToHere: 0, // To be updated by GenerateTripStopCorrelations()
-            };
-        });
+        DrivingUI.cRemainingBusStops = DrivingUI.cFetchedTrip.stop_times.map(aBusStop => ({
+            mCoordinates: { mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1] },
+            mBusStop: aBusStop,
+            mTripDistanceToHere: 0, // To be calculated by GenerateTripStopCorrelations()
+        }));
     }
     DrivingUI.GenerateAugmentedBusStops = GenerateAugmentedBusStops;
     ;
@@ -815,6 +813,7 @@ var DrivingUI;
         }
     }
     DrivingUI.AdvanceToClosestTripLine = AdvanceToClosestTripLine;
+    ;
     function CheckForClosestBusStop(aCurrentCoordinates) {
         const lClosestBusStop = ClosestBusStop(DrivingUI.cRemainingBusStops, aCurrentCoordinates);
         if (lClosestBusStop !== DrivingUI.cRemainingBusStops[0]) {
