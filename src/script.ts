@@ -98,11 +98,11 @@ namespace Util {
 
     export function PointToLineDistanceMapper(aPoint: Coordinates) {
         return (aLineStart: Coordinates, aLineEnd: Coordinates): number => {
-            const lDistStartToEndSquared: number =
-                Math.pow(aLineEnd.mX - aLineStart.mX, 2) + Math.pow(aLineEnd.mY - aLineStart.mY, 2);
+            const lDistStartToEndSquared: number = Math.pow(aLineEnd.mX - aLineStart.mX, 2) + Math.pow(aLineEnd.mY - aLineStart.mY, 2);
 
             // If the line segment is actually a point, return distance between the points
-            if (lDistStartToEndSquared === 0) return Math.hypot(aPoint.mX - aLineStart.mX, aPoint.mY - aLineStart.mY);
+            // if (lDistStartToEndSquared === 0) return Math.hypot(aPoint.mX - aLineStart.mX, aPoint.mY - aLineStart.mY);
+            if (lDistStartToEndSquared === 0) return GeoDistance(aPoint, aLineStart);
 
             // Consider the line extending the segment, parameterized as lineStart + t (lineEnd - lineStart).
             // We find the projection of "point" onto the line. 
@@ -117,7 +117,8 @@ namespace Util {
                 mY: aLineStart.mY + lProjectionFactor * (aLineEnd.mY - aLineStart.mY),
             };
 
-            return Math.hypot(aPoint.mX - lProjection.mX, aPoint.mY - lProjection.mY); // return the distance between the point and its projection
+            // return Math.hypot(aPoint.mX - lProjection.mX, aPoint.mY - lProjection.mY); // return the distance between the point and its projection
+            return GeoDistance(aPoint, lProjection);
         };
     };
 

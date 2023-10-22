@@ -79,8 +79,9 @@ var Util;
         return (aLineStart, aLineEnd) => {
             const lDistStartToEndSquared = Math.pow(aLineEnd.mX - aLineStart.mX, 2) + Math.pow(aLineEnd.mY - aLineStart.mY, 2);
             // If the line segment is actually a point, return distance between the points
+            // if (lDistStartToEndSquared === 0) return Math.hypot(aPoint.mX - aLineStart.mX, aPoint.mY - aLineStart.mY);
             if (lDistStartToEndSquared === 0)
-                return Math.hypot(aPoint.mX - aLineStart.mX, aPoint.mY - aLineStart.mY);
+                return GeoDistance(aPoint, aLineStart);
             // Consider the line extending the segment, parameterized as lineStart + t (lineEnd - lineStart).
             // We find the projection of "point" onto the line. 
             // It falls where t = [(point-lineStart) . (lineEnd-lineStart)] / |lineEnd-lineStart|^2
@@ -92,7 +93,8 @@ var Util;
                 mX: aLineStart.mX + lProjectionFactor * (aLineEnd.mX - aLineStart.mX),
                 mY: aLineStart.mY + lProjectionFactor * (aLineEnd.mY - aLineStart.mY),
             };
-            return Math.hypot(aPoint.mX - lProjection.mX, aPoint.mY - lProjection.mY); // return the distance between the point and its projection
+            // return Math.hypot(aPoint.mX - lProjection.mX, aPoint.mY - lProjection.mY); // return the distance between the point and its projection
+            return GeoDistance(aPoint, lProjection);
         };
     }
     Util.PointToLineDistanceMapper = PointToLineDistanceMapper;
