@@ -638,7 +638,7 @@ var DrivingUI;
             return {
                 Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
-                Name: aIndex == 0 && DrivingUI.cAtBusStop === aBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : aBusStop.mBusStop.stop.stop_name,
+                Name: aIndex == 0 && DrivingUI.cAtBusStop === aBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : `${aBusStop.mBusStop.stop.stop_name}<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 Distance: (lTravelDistance < 1000 ? `${Math.round(lTravelDistance)}m` : `${Math.round(lTravelDistance / 100) / 10}km`) + (lCrowDistance < 1000 ? `<br>(${Math.round(lCrowDistance)}m crow)` : `<br>(${Math.round(lCrowDistance / 100) / 10}km crow)`),
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
                 CrowSpeed: `${Math.round(lCrowSpeedExact)}km/h<br>(${Math.round(lCrowSpeedMin)} - ${Math.round(lCrowSpeedMax)})`,
@@ -933,9 +933,9 @@ var Main;
         OperatorID: '',
         AtBusStopRange: '25',
         BusStopDelaySeconds: '30',
-        DestinationFilter: '',
-        DepartureMaxLead: '-15',
-        DepartureMaxDelay: '60',
+        DestinationFilter: '', // Comma-separated list of partial headsign matches for filtering routes
+        DepartureMaxLead: '-15', // How early you're allowed to leave a timepoint
+        DepartureMaxDelay: '60', // How late you're allowed to leave a timepoint
         NewTripSearchStartTimeOffset: '-14',
         NewTripSearchStartTimeRange: '58',
         TripPointStickiness: '0',
