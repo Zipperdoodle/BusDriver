@@ -638,7 +638,7 @@ var DrivingUI;
             return {
                 Time: `Dep: ${aBusStop.mBusStop.departure_time} (${Util.DurationStringHHMMSS(lCountdown)})<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 T: aBusStop.mBusStop.timepoint > 0 ? "T" : "",
-                Name: aIndex == 0 && DrivingUI.cAtBusStop === aBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : `${aBusStop.mBusStop.stop.stop_name}<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
+                Name: aIndex == 0 && DrivingUI.cAtBusStop === aBusStop ? `*** ${aBusStop.mBusStop.stop.stop_name}` : `#${aBusStop.mStopNumber}: ${aBusStop.mBusStop.stop.stop_name}<br>ETA: ${lSpeed > 0.01 ? lETAString : "---"}`,
                 Distance: (lTravelDistance < 1000 ? `${Math.round(lTravelDistance)}m` : `${Math.round(lTravelDistance / 100) / 10}km`) + (lCrowDistance < 1000 ? `<br>(${Math.round(lCrowDistance)}m crow)` : `<br>(${Math.round(lCrowDistance / 100) / 10}km crow)`),
                 AvgSpeed: `${Math.round(lAvgSpeedExact)}km/h<br>(${Math.round(lAvgSpeedMin)} - ${Math.round(lAvgSpeedMax)})`,
                 CrowSpeed: `${Math.round(lCrowSpeedExact)}km/h<br>(${Math.round(lCrowSpeedMin)} - ${Math.round(lCrowSpeedMax)})`,
@@ -668,11 +668,16 @@ var DrivingUI;
     DrivingUI.ClosestTripPoint = ClosestTripPoint;
     ;
     function GenerateAugmentedBusStops() {
+        let lStopCount = 0;
         DrivingUI.cRemainingBusStops = DrivingUI.cFetchedTrip.stop_times.map(aBusStop => ({
             mCoordinates: { mX: aBusStop.stop.geometry.coordinates[0], mY: aBusStop.stop.geometry.coordinates[1] },
             mBusStop: aBusStop,
             mTripDistanceToHere: 0, // To be calculated by GenerateTripStopCorrelations()
+            mStopNumber: ++lStopCount,
         }));
+        DrivingUI.cRemainingBusStops.forEach((lStop, lIndex) => {
+            lStop.mStopNumber = lIndex;
+        });
     }
     DrivingUI.GenerateAugmentedBusStops = GenerateAugmentedBusStops;
     ;
