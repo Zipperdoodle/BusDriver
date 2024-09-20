@@ -422,6 +422,7 @@ var NewTripUI;
         const lTransitLand = Main.TransitLand();
         const lOperatorID = Main.cUserSettings.OperatorID.trim();
         if (lTransitLand && lOperatorID.length > 0) {
+            UI.PopulateDropdown("RouteList", [["fetching", "Fetching routes..."]]);
             const lFetchResult = await lTransitLand.FetchRoutes(lOperatorID);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
                 localStorage.setItem(`RouteList_${lOperatorID}`, JSON.stringify(lFetchResult.mData.routes));
@@ -440,6 +441,7 @@ var NewTripUI;
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
             const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
             const lRouteSubset = DrivingUI.cFetchedRoutes[lRouteIndex];
+            UI.PopulateDropdown("BusStopList", [["fetching", "Fetching bus stops..."]]);
             const lFetchResult = await lTransitLand.FetchRoute(lRouteSubset.onestop_id);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.routes) {
                 const lRoute = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.routes[0];
@@ -483,6 +485,7 @@ var NewTripUI;
                 end_time: Util.TimeString(lEndTime)
             };
             console.log(lQueryParams);
+            UI.PopulateDropdown("TripList", [["fetching", "Fetching trips..."]]);
             const lFetchResult = await lTransitLand.FetchDepartures(lBusStopID, lQueryParams);
             if ((_a = lFetchResult.mData) === null || _a === void 0 ? void 0 : _a.stops) {
                 const lDepartures = (_b = lFetchResult.mData) === null || _b === void 0 ? void 0 : _b.stops[0].departures;

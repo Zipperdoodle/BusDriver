@@ -723,6 +723,7 @@ namespace NewTripUI {
         const lOperatorID = Main.cUserSettings.OperatorID.trim();
 
         if (lTransitLand && lOperatorID.length > 0) {
+            UI.PopulateDropdown("RouteList", [["fetching", "Fetching routes..."]])
             const lFetchResult = await lTransitLand.FetchRoutes(lOperatorID);
 
             if (lFetchResult.mData?.routes) {
@@ -743,6 +744,8 @@ namespace NewTripUI {
             const lCurrentLatitude = Main.cCurrentPosition.coords.latitude;
             const lCurrentLongitude = Main.cCurrentPosition.coords.longitude;
             const lRouteSubset = DrivingUI.cFetchedRoutes[lRouteIndex];
+
+            UI.PopulateDropdown("BusStopList", [["fetching", "Fetching bus stops..."]])
             const lFetchResult = await lTransitLand.FetchRoute(lRouteSubset.onestop_id);
 
             if (lFetchResult.mData?.routes) {
@@ -794,6 +797,8 @@ namespace NewTripUI {
                 end_time: Util.TimeString(lEndTime)
             };
             console.log(lQueryParams);
+
+            UI.PopulateDropdown("TripList", [["fetching", "Fetching trips..."]])
             const lFetchResult = await lTransitLand.FetchDepartures(lBusStopID, lQueryParams);
 
             if (lFetchResult.mData?.stops) {
